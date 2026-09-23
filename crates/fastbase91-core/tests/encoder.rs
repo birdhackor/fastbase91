@@ -143,7 +143,7 @@ fn bound_covers_nonempty_states_update_and_finish() {
                 .unwrap();
 
             let chunk = &data[64..64 + chunk_len];
-            let mut measuring = encoder;
+            let mut measuring = encoder.clone();
             let required = match measuring.update(chunk, &mut []) {
                 Ok(written) => {
                     assert_eq!(written, 0);
@@ -170,8 +170,8 @@ fn output_too_small_is_transactional_and_retryable() {
     let mut prefix_output = [0_u8; 8];
     let prefix_written = encoder.update(prefix, &mut prefix_output).unwrap();
 
-    let before = encoder;
-    let mut measuring = before;
+    let before = encoder.clone();
+    let mut measuring = before.clone();
     let required = measuring.update(chunk, &mut []).unwrap_err().required();
     assert!(required > 0);
 
@@ -185,7 +185,7 @@ fn output_too_small_is_transactional_and_retryable() {
     let mut retry = vec![0; required];
     let chunk_written = encoder.update(chunk, &mut retry).unwrap();
     assert!(chunk_written <= required);
-    let after_chunk = encoder;
+    let after_chunk = encoder.clone();
     assert_eq!(encoder.update(b"", &mut []), Ok(0));
     assert_eq!(encoder, after_chunk);
 

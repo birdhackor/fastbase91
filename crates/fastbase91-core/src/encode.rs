@@ -49,9 +49,22 @@ impl core::error::Error for EncodeError {}
 
 /// Stateful standard basE91 encoder.
 ///
-/// A call to [`finish`](Self::finish) ends the current message. Separately
+/// A call to [`finish`](Self::finish) ends the current message and consumes the
+/// encoder, so the same stream cannot be continued afterwards. Separately
 /// finished messages must not be concatenated and treated as one basE91 stream.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+///
+/// The consuming contract is enforced by the type system: the encoder is not
+/// `Copy`, so reusing it after `finish` fails to compile.
+///
+/// ```compile_fail
+/// use fastbase91_core::Encoder;
+/// let mut encoder = Encoder::new();
+/// let mut output = [0_u8; 4];
+/// let _tail = encoder.finish();
+/// // `finish` consumed the encoder; encoding more must not compile.
+/// let _ = encoder.update(b"x", &mut output);
+/// ```
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Encoder {
     queue: u32,
     nbits: u8,
@@ -74,7 +87,7 @@ impl Encoder {
             return Err(OutputTooSmall::new(required));
         }
 
-        let mut working = *self;
+        let mut working = self.clone();
         let mut written = 0;
         for &byte in input {
             if let Some(value) = working.push(byte) {
