@@ -155,6 +155,13 @@ fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u
 #[pyo3(signature = (data, /))]
 fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
     let input = copy_input(py, data)?;
+    #[cfg(feature = "bench_no_detach")]
+    {
+        let output = fastbase91_core::encode(input.as_slice()).map_err(encode_error)?;
+        return to_py_bytes(py, &output);
+    }
+
+    #[cfg_attr(feature = "bench_no_detach", allow(unreachable_code))]
     let output = py
         .detach(move || fastbase91_core::encode(input.as_slice()))
         .map_err(encode_error)?;
@@ -174,6 +181,14 @@ fn decode<'py>(
     let input = copy_input(py, data)?;
     let mut options = DecodeOptions::new();
     options.reject_non_alphabet = strict;
+    #[cfg(feature = "bench_no_detach")]
+    {
+        let output = fastbase91_core::decode(input.as_slice(), options)
+            .map_err(|error| decode_error(py, error))?;
+        return to_py_bytes(py, &output);
+    }
+
+    #[cfg_attr(feature = "bench_no_detach", allow(unreachable_code))]
     let output = py
         .detach(move || fastbase91_core::decode(input.as_slice(), options))
         .map_err(|error| decode_error(py, error))?;
