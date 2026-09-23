@@ -5,6 +5,7 @@ edition = "2021"
 rust-version = "1.81"
 license = "MIT OR Apache-2.0"
 description = "Safe no_std core for fastbase91"
+include = ["src/**", "LICENSE-MIT", "LICENSE-APACHE"]
 
 [features]
 default = ["std"]
