@@ -5,6 +5,17 @@ class ReadableBuffer(Protocol):
     def __buffer__(self, flags: int, /) -> memoryview: ...
 
 
+class DecodeError(ValueError):
+    """Raised when decoding fails.
+
+    ``offset`` is the 0-based byte position of the failure (whole-stream for the
+    streaming :class:`Decoder`); ``byte`` is the offending out-of-alphabet byte.
+    """
+
+    offset: int
+    byte: int
+
+
 def encode(data: ReadableBuffer, /) -> bytes: ...
 def decode(data: ReadableBuffer, /, *, strict: bool = False) -> bytes: ...
 
