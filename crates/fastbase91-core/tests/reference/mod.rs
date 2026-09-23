@@ -58,7 +58,6 @@ pub fn encode(input: &[u8]) -> Vec<u8> {
     run("encode", input)
 }
 
-#[allow(dead_code)]
 pub fn decode(input: &[u8]) -> Vec<u8> {
     run("decode", input)
 }
