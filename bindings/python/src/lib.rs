@@ -4,9 +4,10 @@ use fastbase91_core::{
     max_decoded_len, max_encoded_len, DecodeError as CoreDecodeError, DecodeOptions,
     Decoder as CoreDecoder, EncodeError as CoreEncodeError, Encoder as CoreEncoder,
 };
-use pyo3::buffer::PyBuffer;
+use pyo3::buffer::PyUntypedBuffer;
 use pyo3::exceptions::{PyBufferError, PyMemoryError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedBytes;
 use pyo3::types::PyBytes;
 
 pyo3::create_exception!(
@@ -36,22 +37,67 @@ fn allocate_output(capacity: Option<usize>) -> PyResult<Vec<u8>> {
     Ok(output)
 }
 
-fn copy_input(py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
-    let buffer = PyBuffer::<u8>::get(data)?;
+enum Input {
+    Borrowed(PyBackedBytes),
+    Owned(Vec<u8>),
+}
+
+impl Input {
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed(bytes) => bytes.as_ref(),
+            Self::Owned(bytes) => bytes,
+        }
+    }
+
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+}
+
+fn copy_input(py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Input> {
+    if let Ok(bytes) = data.cast::<PyBytes>() {
+        return Ok(Input::Borrowed(PyBackedBytes::from(bytes.to_owned())));
+    }
+
+    let buffer = PyUntypedBuffer::get(data)?;
     if buffer.dimensions() != 1 || !buffer.is_c_contiguous() {
         return Err(PyBufferError::new_err(
             "v1 only accepts contiguous one-dimensional bytes-like objects",
         ));
     }
+    if buffer.item_size() != 1 || !matches!(buffer.format().to_bytes(), b"b" | b"B") {
+        return Err(PyBufferError::new_err(
+            "v1 only accepts signed or unsigned single-byte buffers",
+        ));
+    }
 
     let length = buffer.item_count();
-    let mut input = Vec::new();
-    input
-        .try_reserve_exact(length)
-        .map_err(|_| memory_error())?;
-    input.resize(length, 0);
-    buffer.copy_to_slice(py, &mut input)?;
-    Ok(input)
+    if buffer.format().to_bytes() == b"B" {
+        let buffer = buffer.into_typed::<u8>()?;
+        let mut input = Vec::new();
+        input
+            .try_reserve_exact(length)
+            .map_err(|_| memory_error())?;
+        input.resize(length, 0);
+        buffer.copy_to_slice(py, &mut input)?;
+        Ok(Input::Owned(input))
+    } else {
+        let buffer = buffer.into_typed::<i8>()?;
+        let mut signed = Vec::new();
+        signed
+            .try_reserve_exact(length)
+            .map_err(|_| memory_error())?;
+        signed.resize(length, 0);
+        buffer.copy_to_slice(py, &mut signed)?;
+
+        let mut input = Vec::new();
+        input
+            .try_reserve_exact(length)
+            .map_err(|_| memory_error())?;
+        input.extend(signed.into_iter().map(|byte| byte as u8));
+        Ok(Input::Owned(input))
+    }
 }
 
 fn to_py_bytes<'py>(py: Python<'py>, output: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
@@ -110,7 +156,7 @@ fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u
 fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
     let input = copy_input(py, data)?;
     let output = py
-        .detach(move || fastbase91_core::encode(&input))
+        .detach(move || fastbase91_core::encode(input.as_slice()))
         .map_err(encode_error)?;
     to_py_bytes(py, &output)
 }
@@ -129,7 +175,7 @@ fn decode<'py>(
     let mut options = DecodeOptions::new();
     options.reject_non_alphabet = strict;
     let output = py
-        .detach(move || fastbase91_core::decode(&input, options))
+        .detach(move || fastbase91_core::decode(input.as_slice(), options))
         .map_err(|error| decode_error(py, error))?;
     to_py_bytes(py, &output)
 }
@@ -165,7 +211,7 @@ impl Encoder {
         let input = copy_input(py, data)?;
         let mut output = allocate_output(max_encoded_len(input.len()))?;
         let written = working
-            .update(&input, &mut output)
+            .update(input.as_slice(), &mut output)
             .map_err(|error| internal_error(error.to_string()))?;
         output.truncate(written);
         let bytes = to_py_bytes(py, &output)?;
@@ -219,7 +265,7 @@ impl Decoder {
         let input = copy_input(py, data)?;
         let mut output = allocate_output(max_decoded_len(input.len()))?;
         let written = working
-            .update(&input, &mut output)
+            .update(input.as_slice(), &mut output)
             .map_err(|error| streaming_decode_error(py, error, self.consumed_input))?;
         output.truncate(written);
         let bytes = to_py_bytes(py, &output)?;

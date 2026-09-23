@@ -1,6 +1,7 @@
 import random
 import sys
 import sysconfig
+from array import array
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -85,6 +86,29 @@ def test_bytes_like_buffers(buffer_type):
     assert decoded_result == b"hello"
 
 
+def test_nonempty_bytes_input_round_trip():
+    plain = b"immutable bytes input"
+    assert decode(encode(plain)) == plain
+
+
+def test_signed_byte_buffers_preserve_negative_value_bits_across_all_entry_points():
+    signed_plain = array("b", [-128, -1, 0, 1, 65, 127])
+    unsigned_plain = b"\x80\xff\x00\x01A\x7f"
+    assert signed_plain.tobytes() == unsigned_plain
+
+    one_shot_encoded = encode(memoryview(signed_plain))
+    signed_encoded = array("b", one_shot_encoded)
+    assert decode(memoryview(signed_encoded)) == unsigned_plain
+
+    encoder = Encoder()
+    streaming_encoded = encoder.update(memoryview(signed_plain)) + encoder.finish()
+    assert streaming_encoded == one_shot_encoded
+
+    decoder = Decoder()
+    streaming_decoded = decoder.update(memoryview(signed_encoded)) + decoder.finish()
+    assert streaming_decoded == unsigned_plain
+
+
 def _encoder_update(data):
     return Encoder().update(data)
 
@@ -112,6 +136,19 @@ def test_rejects_unsupported_buffer_layouts(consume, buffer_factory):
         match="v1 only accepts contiguous one-dimensional bytes-like objects",
     ):
         consume(buffer_factory())
+
+
+@pytest.mark.parametrize(
+    "consume",
+    [encode, decode, _encoder_update, _decoder_update],
+    ids=["encode", "decode", "encoder-update", "decoder-update"],
+)
+def test_rejects_non_byte_buffers(consume):
+    with pytest.raises(
+        BufferError,
+        match="v1 only accepts signed or unsigned single-byte buffers",
+    ):
+        consume(memoryview(array("i", [1, 2, 3])))
 
 
 def _chunks(data, widths):
