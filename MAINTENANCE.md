@@ -40,6 +40,10 @@ release job 再以同一 manifest 重驗 filename、SHA-256、source commit 與 
 
 一個 release 必須完全來自同一個 immutable `release-batch`。PyPI 發布絕不使用
 `skip-existing`，也沒有自動重建補檔路徑；手動觸發也一樣會建立與上傳完整的新 batch。
+`publish-pypi` 與 `publish-crates` 串成固定順序（crates 在 pypi 成功後才跑），且以
+`concurrency` group 綁 tag，使同一 tag 一次只跑一個 release run；因此兩個 registry
+不可能由不同 run 各贏一個。任何部分發布失敗只能走下面的人工復原，不得靠重跑補齊
+（重跑時 pypi 會因既有檔案失敗，crates 隨其上游一併被 skip）。
 在開始發布前，必須同步提升 core crate、Python binding crate 與
 `bindings/python/pyproject.toml` 所代表的套件版本，並確認三者與 tag 相同。
 `publish-crates` 會由 `cargo metadata` 讀取 `fastbase91-core` 的實際版本，與 tag 去掉

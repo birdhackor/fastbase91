@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# One release run per tag at a time: a second trigger for the same ref waits
+# instead of racing the first, so the two registries can never be won by
+# different runs.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   validate-release-ref:
     name: validate release tag
@@ -77,7 +84,10 @@ jobs:
 
   publish-crates:
     name: publish fastbase91-core to crates.io
-    needs: verify-release-batch
+    # Serialized after PyPI (not merely parallel on verify-release-batch) so a
+    # re-run whose PyPI upload fails on already-present files cannot still push a
+    # freshly rebuilt crate: the crate job is skipped when its upstream fails.
+    needs: publish-pypi
     runs-on: ubuntu-latest
     environment: crates
     permissions:
