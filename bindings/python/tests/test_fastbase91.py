@@ -57,6 +57,22 @@ def test_decode_error_is_a_value_error_subclass():
     assert "DecodeError" in fastbase91.__all__
 
 
+def test_data_parameters_are_positional_only():
+    keyword_calls = [
+        lambda: encode(data=b"x"),
+        lambda: decode(data=b"x"),
+        lambda: Encoder().update(data=b"A"),
+        lambda: Decoder().update(data=b"A"),
+    ]
+    for call in keyword_calls:
+        with pytest.raises(TypeError):
+            call()
+
+    assert decode(encode(b"x")) == b"x"
+    assert type(Encoder().update(b"A")) is bytes
+    assert type(Decoder().update(b"A")) is bytes
+
+
 @pytest.mark.parametrize("buffer_type", [bytes, bytearray, memoryview])
 def test_bytes_like_buffers(buffer_type):
     plain = buffer_type(b"hello")
@@ -167,15 +183,24 @@ def test_streaming_accepts_bytes_like_buffers():
     assert decoded == b"hello"
 
 
-def test_streaming_decode_error_offset_is_chunk_local():
+def test_streaming_decode_error_offset_is_whole_stream_and_state_is_transactional():
     decoder = Decoder(strict=True)
-    decoder.update(b"TPw")
+    decoded = decoder.update(b"TPw")
 
     with pytest.raises(DecodeError) as caught:
-        decoder.update(b"J >A")
+        decoder.update(b"J h>A")
 
-    assert caught.value.offset == 1
+    assert caught.value.offset == 4
     assert caught.value.byte == 0x20
+    assert "invalid byte 0x20 at offset 4" in str(caught.value)
+
+    with pytest.raises(DecodeError) as repeated:
+        decoder.update(b"J h>A")
+    assert repeated.value.offset == 4
+
+    decoded += decoder.update(b"Jh>A")
+    decoded += decoder.finish()
+    assert decoded == b"hello"
 
 
 @pytest.mark.parametrize("codec", [Encoder, Decoder])

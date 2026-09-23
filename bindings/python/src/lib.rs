@@ -70,18 +70,22 @@ fn encode_error(error: CoreEncodeError) -> PyErr {
     }
 }
 
+fn invalid_byte_error(py: Python<'_>, byte: u8, offset: u64) -> PyErr {
+    let error = DecodeError::new_err(format!("invalid byte 0x{byte:02x} at offset {offset}"));
+    if let Err(attribute_error) = error.value(py).setattr("offset", offset) {
+        return attribute_error;
+    }
+    if let Err(attribute_error) = error.value(py).setattr("byte", byte) {
+        return attribute_error;
+    }
+    error
+}
+
 fn decode_error(py: Python<'_>, error: CoreDecodeError) -> PyErr {
     let message = error.to_string();
     match error {
         CoreDecodeError::InvalidByte { byte, offset } => {
-            let error = DecodeError::new_err(message);
-            if let Err(attribute_error) = error.value(py).setattr("offset", offset) {
-                return attribute_error;
-            }
-            if let Err(attribute_error) = error.value(py).setattr("byte", byte) {
-                return attribute_error;
-            }
-            error
+            invalid_byte_error(py, byte, offset as u64)
         }
         CoreDecodeError::AllocationFailed => memory_error(),
         CoreDecodeError::OutputTooSmall(_) => internal_error(message),
@@ -89,10 +93,20 @@ fn decode_error(py: Python<'_>, error: CoreDecodeError) -> PyErr {
     }
 }
 
+fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u64) -> PyErr {
+    match error {
+        CoreDecodeError::InvalidByte { byte, offset } => {
+            invalid_byte_error(py, byte, base_offset + offset as u64)
+        }
+        _ => decode_error(py, error),
+    }
+}
+
 /// Encode a bytes-like object and return `bytes`.
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
 #[pyfunction]
+#[pyo3(signature = (data, /))]
 fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
     let input = copy_input(py, data)?;
     let output = py
@@ -105,7 +119,7 @@ fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, 
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
 #[pyfunction]
-#[pyo3(signature = (data, *, strict = false))]
+#[pyo3(signature = (data, /, *, strict = false))]
 fn decode<'py>(
     py: Python<'py>,
     data: &Bound<'_, PyAny>,
@@ -137,6 +151,7 @@ impl Encoder {
     /// Encode the next bytes-like input chunk and return the available output.
     ///
     /// The caller must not mutate a writable input buffer concurrently during this call.
+    #[pyo3(signature = (data, /))]
     fn update<'py>(
         &mut self,
         py: Python<'py>,
@@ -171,6 +186,7 @@ impl Encoder {
 #[pyclass(module = "fastbase91._fastbase91")]
 struct Decoder {
     inner: Option<CoreDecoder>,
+    consumed_input: u64,
 }
 
 #[pymethods]
@@ -182,12 +198,14 @@ impl Decoder {
         options.reject_non_alphabet = strict;
         Self {
             inner: Some(CoreDecoder::new(options)),
+            consumed_input: 0,
         }
     }
 
     /// Decode the next bytes-like input chunk and return the available output.
     ///
     /// The caller must not mutate a writable input buffer concurrently during this call.
+    #[pyo3(signature = (data, /))]
     fn update<'py>(
         &mut self,
         py: Python<'py>,
@@ -202,10 +220,11 @@ impl Decoder {
         let mut output = allocate_output(max_decoded_len(input.len()))?;
         let written = working
             .update(&input, &mut output)
-            .map_err(|error| decode_error(py, error))?;
+            .map_err(|error| streaming_decode_error(py, error, self.consumed_input))?;
         output.truncate(written);
         let bytes = to_py_bytes(py, &output)?;
         self.inner = Some(working);
+        self.consumed_input += input.len() as u64;
         Ok(bytes)
     }
 
