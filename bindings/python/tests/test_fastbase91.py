@@ -1,5 +1,6 @@
 import random
 import sys
+import sysconfig
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -68,6 +69,35 @@ def test_bytes_like_buffers(buffer_type):
     assert decoded_result == b"hello"
 
 
+def _encoder_update(data):
+    return Encoder().update(data)
+
+
+def _decoder_update(data):
+    return Decoder().update(data)
+
+
+@pytest.mark.parametrize(
+    "consume",
+    [encode, decode, _encoder_update, _decoder_update],
+    ids=["encode", "decode", "encoder-update", "decoder-update"],
+)
+@pytest.mark.parametrize(
+    "buffer_factory",
+    [
+        lambda: memoryview(b"abcdef")[::2],
+        lambda: memoryview(b"abcdef").cast("B", shape=(2, 3)),
+    ],
+    ids=["non-contiguous", "multi-dimensional"],
+)
+def test_rejects_unsupported_buffer_layouts(consume, buffer_factory):
+    with pytest.raises(
+        BufferError,
+        match="v1 only accepts contiguous one-dimensional bytes-like objects",
+    ):
+        consume(buffer_factory())
+
+
 def _chunks(data, widths):
     start = 0
     for width in widths:
@@ -89,6 +119,7 @@ def test_streaming_matches_one_shot_across_chunk_boundaries():
         for chunk in _chunks(plain, [1, 2, 13, 3, 257, 4_096, 7])
     ]
     encoded_parts.append(encoder.finish())
+    assert all(type(part) is bytes for part in encoded_parts)
     encoded = b"".join(encoded_parts)
     assert encoded == encode(plain)
 
@@ -98,8 +129,29 @@ def test_streaming_matches_one_shot_across_chunk_boundaries():
         for chunk in _chunks(encoded, [1, 3, 2, 17, 1_024, 5, 4_097])
     ]
     decoded_parts.append(decoder.finish())
+    assert all(type(part) is bytes for part in decoded_parts)
     assert b"".join(decoded_parts) == plain
     assert b"".join(decoded_parts) == decode(encoded)
+
+
+def test_streaming_returns_immediate_exact_bytes_prefixes():
+    encoder = Encoder()
+    encoded_parts = [
+        encoder.update(b"he"),
+        encoder.update(b"llo"),
+        encoder.finish(),
+    ]
+    assert [type(part) for part in encoded_parts] == [bytes, bytes, bytes]
+    assert encoded_parts == [b"TP", b"wJh>", b"A"]
+
+    decoder = Decoder()
+    decoded_parts = [
+        decoder.update(b"TP"),
+        decoder.update(b"wJh>A"),
+        decoder.finish(),
+    ]
+    assert [type(part) for part in decoded_parts] == [bytes, bytes, bytes]
+    assert decoded_parts == [b"h", b"ell", b"o"]
 
 
 def test_streaming_accepts_bytes_like_buffers():
@@ -137,16 +189,16 @@ def test_finish_closes_stream(codec):
         stream.finish()
 
 
-def _free_threaded_runtime():
-    is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
-    return is_gil_enabled is not None and not is_gil_enabled()
+def _free_threaded_build():
+    return sysconfig.get_config_var("Py_GIL_DISABLED") == 1
 
 
 @pytest.mark.skipif(
-    not _free_threaded_runtime(),
-    reason="requires a free-threaded Python runtime with the GIL disabled",
+    not _free_threaded_build(),
+    reason="requires a free-threaded Python build (Py_GIL_DISABLED is false)",
 )
 def test_free_threaded_runtime_round_trip():
+    assert not sys._is_gil_enabled(), "importing fastbase91 must not re-enable the GIL"
     data = ROUND_TRIP_CASES[-1]
     with ThreadPoolExecutor(max_workers=4) as executor:
         results = list(executor.map(lambda _: decode(encode(data)), range(8)))
