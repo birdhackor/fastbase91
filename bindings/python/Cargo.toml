@@ -1,0 +1,17 @@
+[package]
+name = "fastbase91-python"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "PyO3 bindings for fastbase91"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_fastbase91"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.29.0", features = ["extension-module"] }
+fastbase91-core = { path = "../../crates/fastbase91-core" }

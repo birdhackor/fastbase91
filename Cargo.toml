@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/fastbase91-core",
+    "bindings/python",
+]
+resolver = "2"
