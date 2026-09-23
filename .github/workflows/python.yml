@@ -1,4 +1,4 @@
-name: Python
+name: Python wheels
 
 on:
   push:
@@ -8,18 +8,251 @@ permissions:
   contents: read
 
 jobs:
-  maturin:
+  build-wheels:
+    name: ${{ matrix.id }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux builds run in the manylinux container. The interpreter names
+          # refer to the copies supplied by that container, not setup-python.
+          - id: abi3-py311-manylinux
+            os: ubuntu-latest
+            interpreter: python3.11
+            python_version: ""
+            manylinux: "2_28"
+          - id: cp314-cp314t-manylinux
+            os: ubuntu-latest
+            interpreter: python3.14t
+            python_version: ""
+            manylinux: "2_28"
+          - id: abi3t-py315-manylinux
+            os: ubuntu-latest
+            interpreter: python3.15t
+            python_version: ""
+            manylinux: "2_28"
+          # On Windows each job installs exactly one interpreter. This avoids
+          # setup-python's known regular/free-threaded co-installation issue.
+          - id: abi3-py311-windows
+            os: windows-latest
+            interpreter: python
+            python_version: "3.11"
+            manylinux: "off"
+          - id: cp314-cp314t-windows
+            os: windows-latest
+            interpreter: python
+            python_version: "3.14t"
+            manylinux: "off"
+          - id: abi3t-py315-windows
+            os: windows-latest
+            interpreter: python
+            python_version: "3.15t"
+            manylinux: "off"
+          - id: abi3-py311-macos
+            os: macos-latest
+            interpreter: python
+            python_version: "3.11"
+            manylinux: "off"
+          - id: cp314-cp314t-macos
+            os: macos-latest
+            interpreter: python
+            python_version: "3.14t"
+            manylinux: "off"
+          - id: abi3t-py315-macos
+            os: macos-latest
+            interpreter: python
+            python_version: "3.15t"
+            manylinux: "off"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        if: matrix.python_version != ''
+        with:
+          python-version: ${{ matrix.python_version }}
+      - uses: PyO3/maturin-action@v1
+        with:
+          maturin-version: v1.15.0
+          rust-toolchain: stable
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --locked --compatibility pypi --manifest-path bindings/python/Cargo.toml --out dist -i ${{ matrix.interpreter }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.id }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  build-sdist:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: PyO3/maturin-action@v1
+        with:
+          maturin-version: v1.15.0
+          command: sdist
+          args: --manifest-path bindings/python/Cargo.toml --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  manifest:
+    needs: [build-wheels, build-sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - run: >-
+          python .github/scripts/gen-manifest.py
+          --artifacts artifacts
+          --output manifest.json
+          --package fastbase91
+          --source-commit "${{ github.sha }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manifest
+          path: manifest.json
+          if-no-files-found: error
+
+  test-wheels:
+    name: test ${{ matrix.id }} on Python ${{ matrix.python_version }}
+    needs: build-wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The abi3 wheel is exercised on both its ABI floor and a newer
+          # regular CPython. Every platform-specific artifact is installed.
+          - id: abi3-py311-manylinux
+            os: ubuntu-latest
+            artifact: wheels-abi3-py311-manylinux
+            python_version: "3.11"
+            free_threaded: false
+          - id: cp314-cp314t-manylinux
+            os: ubuntu-latest
+            artifact: wheels-cp314-cp314t-manylinux
+            python_version: "3.14t"
+            free_threaded: true
+          - id: abi3t-py315-manylinux
+            os: ubuntu-latest
+            artifact: wheels-abi3t-py315-manylinux
+            python_version: "3.15t"
+            free_threaded: true
+          - id: abi3-py311-windows
+            os: windows-latest
+            artifact: wheels-abi3-py311-windows
+            python_version: "3.13"
+            free_threaded: false
+          - id: cp314-cp314t-windows
+            os: windows-latest
+            artifact: wheels-cp314-cp314t-windows
+            python_version: "3.14t"
+            free_threaded: true
+          - id: abi3t-py315-windows
+            os: windows-latest
+            artifact: wheels-abi3t-py315-windows
+            python_version: "3.15t"
+            free_threaded: true
+          - id: abi3-py311-macos
+            os: macos-latest
+            artifact: wheels-abi3-py311-macos
+            python_version: "3.13"
+            free_threaded: false
+          - id: cp314-cp314t-macos
+            os: macos-latest
+            artifact: wheels-cp314-cp314t-macos
+            python_version: "3.14t"
+            free_threaded: true
+          - id: abi3t-py315-macos
+            os: macos-latest
+            artifact: wheels-abi3t-py315-macos
+            python_version: "3.15t"
+            free_threaded: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python_version }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: wheel
+      - name: Install the built wheel and test dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install --force-reinstall wheel/*.whl
+      - name: Import smoke test
+        shell: bash
+        run: |
+          python -c "import fastbase91; assert fastbase91.encode(b'input') == b'xojg][A'; print('python import: ok')"
+      - name: Free-threaded build gate
+        if: matrix.free_threaded
+        shell: bash
+        run: |
+          python - <<'PY'
+          from concurrent.futures import ThreadPoolExecutor
+          import sys
+
+          if not hasattr(sys, "_is_gil_enabled"):
+              raise RuntimeError("this gate requires a free-threaded CPython runtime")
+
+          import fastbase91
+
+          if sys._is_gil_enabled():
+              raise AssertionError("importing fastbase91 re-enabled the GIL")
+
+          payloads = [
+              bytes((seed + offset) % 256 for offset in range(4096 + seed))
+              for seed in range(32)
+          ]
+          with ThreadPoolExecutor(max_workers=8) as executor:
+              results = list(
+                  executor.map(lambda payload: fastbase91.decode(fastbase91.encode(payload)), payloads)
+              )
+          for index, (payload, result) in enumerate(zip(payloads, results, strict=True)):
+              if result != payload:
+                  raise AssertionError(f"payload {index} changed during concurrent round-trip")
+          print("free-threaded gate: GIL remains disabled and all payload bytes round-trip")
+          PY
+      - name: Run binding tests
+        shell: bash
+        run: python -m pytest bindings/python/tests -q
+
+  license-copies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python .github/scripts/check-license-copies.py
+
+  link-python-input-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
       - uses: dtolnay/rust-toolchain@stable
-      - run: python -m pip install "maturin>=1.15,<2.0"
-      - run: maturin build --release --out dist
-        working-directory: bindings/python
-      - run: python -m pip install --force-reinstall bindings/python/dist/*.whl
-      - run: python -c "import fastbase91; assert fastbase91.encode(b'input') == b'xojg][A'; print('python import: ok')"
-      - run: python -m pip install pytest
-      - run: python -m pytest bindings/python/tests -v
+      - name: Assert PyBytes borrows while bytearray owns
+        shell: bash
+        run: |
+          # Derive the linker name from the interpreter version + abiflags
+          # (e.g. python3.14, python3.14t). LDLIBRARY is unreliable here: on a
+          # macOS framework build it is a framework path, not libpythonX.Y.dylib.
+          python_libdir="$(python -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"
+          python_link_name="$(python -c 'import sys; print(f"python{sys.version_info.major}.{sys.version_info.minor}{sys.abiflags}")')"
+          test -n "$python_libdir"
+          test -n "$python_link_name"
+          RUSTFLAGS="--cfg fastbase91_link_python -L native=$python_libdir -l dylib=$python_link_name" \
+            cargo test -p fastbase91-python --lib

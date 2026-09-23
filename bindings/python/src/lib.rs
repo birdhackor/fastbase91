@@ -100,6 +100,31 @@ fn copy_input(py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<Input> {
     }
 }
 
+// This test calls the CPython C API and therefore needs libpython at link time.
+// Keep it behind an explicit rustc cfg so ordinary `cargo test --all-features`
+// remains independent of a local Python framework installation.
+#[cfg(all(test, fastbase91_link_python))]
+mod link_python_input_tests {
+    use super::*;
+    use pyo3::types::PyByteArray;
+
+    #[test]
+    fn copy_input_borrows_bytes_and_owns_bytearray() {
+        Python::initialize();
+        Python::attach(|py| {
+            let bytes = PyBytes::new(py, b"borrowed input");
+            let borrowed = copy_input(py, bytes.as_any()).expect("bytes input is accepted");
+            assert!(matches!(&borrowed, Input::Borrowed(_)));
+            assert_eq!(borrowed.as_slice(), b"borrowed input");
+
+            let bytearray = PyByteArray::new(py, b"owned input");
+            let owned = copy_input(py, bytearray.as_any()).expect("bytearray input is accepted");
+            assert!(matches!(&owned, Input::Owned(_)));
+            assert_eq!(owned.as_slice(), b"owned input");
+        });
+    }
+}
+
 fn to_py_bytes<'py>(py: Python<'py>, output: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
     PyBytes::new_with(py, output.len(), |bytes| {
         bytes.copy_from_slice(output);
