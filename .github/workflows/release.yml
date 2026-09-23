@@ -204,18 +204,39 @@ jobs:
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: clippy
+          targets: thumbv7em-none-eabihf
       # The Python release path builds and tests everything via python.yml; the
-      # decoupled core path must gate its own irreversible publish rather than
-      # trust that the tagged commit already passed CI.
-      - name: Lint and test the core crate before publishing
+      # decoupled core path must gate its own irreversible publish across the same
+      # feature matrix rust.yml covers, so a broken no_std/alloc or bare-metal
+      # build cannot permanently burn a crates.io version.
+      - name: Lint and test the core crate across its feature matrix
         run: |
           set -euo pipefail
-          cargo clippy -p fastbase91-core --all-targets --locked -- -D warnings
-          cargo test -p fastbase91-core --locked
+          cargo clippy -p fastbase91-core --all-targets --all-features -- -D warnings
+          cargo test -p fastbase91-core --no-default-features
+          cargo test -p fastbase91-core --no-default-features --features alloc
+          cargo test -p fastbase91-core --all-features
+          cargo check --target thumbv7em-none-eabihf -p fastbase91-core --no-default-features
+
+  build-test-core-msrv:
+    name: test fastbase91-core on MSRV 1.81
+    needs: validate-release-ref
+    if: ${{ needs.validate-release-ref.outputs.kind == 'core' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@9a1e4aa8b738983d2a36f2f839626fe8fdaf1355 # 1.81.0
+      - name: Test the core crate on the minimum supported Rust version
+        run: |
+          set -euo pipefail
+          cargo test -p fastbase91-core --no-default-features
+          cargo test -p fastbase91-core --no-default-features --features alloc
 
   publish-crates:
     name: publish fastbase91-core to crates.io
-    needs: [validate-release-ref, build-test-core]
+    needs: [validate-release-ref, build-test-core, build-test-core-msrv]
     if: ${{ needs.validate-release-ref.outputs.kind == 'core' }}
     runs-on: ubuntu-latest
     environment: crates
