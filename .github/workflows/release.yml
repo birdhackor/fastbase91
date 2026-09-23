@@ -5,19 +5,32 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      repair_missing:
-        description: "Permit PyPI to skip already-present files after a remote hash audit"
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
 
 jobs:
+  validate-release-ref:
+    name: validate release tag
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Require an exact stable release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
+            echo "release publishing requires a tag ref, got: $GITHUB_REF_TYPE" >&2
+            exit 1
+          fi
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must match ^v[0-9]+\\.[0-9]+\\.[0-9]+$, got: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
   build-test-and-batch:
     name: build, test, and assemble release batch
+    needs: validate-release-ref
     uses: ./.github/workflows/python.yml
     permissions:
       contents: read
@@ -61,7 +74,6 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70 # v1.12.3
         with:
           packages-dir: release-batch/artifacts
-          skip-existing: ${{ inputs.repair_missing || false }}
 
   publish-crates:
     name: publish fastbase91-core to crates.io
@@ -70,8 +82,6 @@ jobs:
     environment: crates
     permissions:
       contents: read
-    env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # The first crates.io publication uses P11's scoped token. After that
@@ -79,4 +89,27 @@ jobs:
       # Do not publish fastbase91-python: its path dependency lacks a core
       # version and therefore remains intentionally unpublished until P11.
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-      - run: cargo publish -p fastbase91-core --locked
+      - name: Require the core crate version to match the release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_version="$(cargo metadata --no-deps --format-version 1 | python3 -c '
+          import json
+          import sys
+
+          packages = json.load(sys.stdin)["packages"]
+          matches = [package for package in packages if package["name"] == "fastbase91-core"]
+          if len(matches) != 1:
+              raise SystemExit(f"expected one fastbase91-core package, found {len(matches)}")
+          print(matches[0]["version"])
+          ')"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [[ "$core_version" != "$tag_version" ]]; then
+            echo "fastbase91-core version $core_version does not match release tag $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          echo "fastbase91-core version matches release tag: $core_version"
+      - name: Publish fastbase91-core to crates.io
+        run: cargo publish -p fastbase91-core --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

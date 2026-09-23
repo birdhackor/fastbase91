@@ -98,6 +98,56 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  sdist-build-test:
+    name: build and smoke-test unpacked source distribution
+    needs: build-sdist
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sdist
+          path: sdist
+      - name: Build from unpacked sdist and test the resulting wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          work_dir="$(mktemp -d)"
+          trap 'rm -rf "$work_dir"' EXIT
+          shopt -s nullglob
+          sdists=(sdist/*.tar.gz)
+          if (( ${#sdists[@]} != 1 )); then
+            echo "expected exactly one sdist artifact, found ${#sdists[@]}" >&2
+            exit 1
+          fi
+          mkdir "$work_dir/unpacked"
+          tar -xzf "${sdists[0]}" -C "$work_dir/unpacked"
+          source_dirs=("$work_dir"/unpacked/*)
+          if (( ${#source_dirs[@]} != 1 )) || [[ ! -d "${source_dirs[0]}" ]]; then
+            echo "sdist must unpack to exactly one source directory" >&2
+            exit 1
+          fi
+          python -m venv "$work_dir/build-venv"
+          "$work_dir/build-venv/bin/python" -m pip install --upgrade pip "maturin==1.15.0"
+          mkdir "$work_dir/wheels"
+          (
+            cd "${source_dirs[0]}"
+            "$work_dir/build-venv/bin/maturin" build --release --locked --out "$work_dir/wheels"
+          )
+          python -m venv "$work_dir/test-venv"
+          "$work_dir/test-venv/bin/python" -m pip install --force-reinstall "$work_dir"/wheels/*.whl
+          "$work_dir/test-venv/bin/python" - <<'PY'
+          import fastbase91
+
+          payload = bytes(range(256))
+          assert fastbase91.decode(fastbase91.encode(payload)) == payload
+          print("unpacked sdist build and round-trip smoke test: ok")
+          PY
+
   manifest:
     needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
@@ -260,7 +310,7 @@ jobs:
 
   verify-batch:
     name: verify release batch
-    needs: manifest
+    needs: [manifest, sdist-build-test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

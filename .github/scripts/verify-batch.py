@@ -26,10 +26,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--expected-version",
+        default=None,
         help="optional release version which the manifest must match",
     )
     parser.add_argument(
         "--expected-source-commit",
+        default=None,
         help="optional source commit which the manifest must match",
     )
     return parser.parse_args()
@@ -172,19 +174,24 @@ def verify(args: argparse.Namespace) -> tuple[int, str, str]:
     actual = collect_actual_artifacts(args.artifacts)
     errors: list[str] = []
 
-    if args.expected_version and manifest["version"] != args.expected_version:
-        errors.append(
-            f"manifest version {manifest['version']!r} does not match "
-            f"expected version {args.expected_version!r}"
-        )
-    if (
-        args.expected_source_commit
-        and manifest["source_commit"] != args.expected_source_commit
-    ):
-        errors.append(
-            f"manifest source_commit {manifest['source_commit']!r} does not match "
-            f"expected source commit {args.expected_source_commit!r}"
-        )
+    if args.expected_version is not None:
+        if not args.expected_version:
+            errors.append("expected version must be a non-empty string when provided")
+        elif manifest["version"] != args.expected_version:
+            errors.append(
+                f"manifest version {manifest['version']!r} does not match "
+                f"expected version {args.expected_version!r}"
+            )
+    if args.expected_source_commit is not None:
+        if not args.expected_source_commit:
+            errors.append(
+                "expected source commit must be a non-empty string when provided"
+            )
+        elif manifest["source_commit"] != args.expected_source_commit:
+            errors.append(
+                f"manifest source_commit {manifest['source_commit']!r} does not match "
+                f"expected source commit {args.expected_source_commit!r}"
+            )
 
     missing = sorted(set(expected) - set(actual))
     unexpected = sorted(set(actual) - set(expected))

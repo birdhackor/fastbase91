@@ -28,12 +28,23 @@ PyO3：在 release note 宣告停產，移除該 matrix entry，並保留仍受�
 
 ## 發布
 
-`release.yml` 在推送 `v<套件版本>` tag 時觸發；手動觸發只用於已完成遠端
-hash 稽核的補檔，且必須在 UI 選取同一個 tag。它呼叫 `python.yml` 的
-`workflow_call`：同一個 workflow run 會建置 9 組 wheels 與 sdist、產生
-manifest、各 wheel 安裝測試、執行 gates，然後把 manifest 和 distributions
-封裝成 `release-batch` artifact。頂層 release job 再以同一 manifest 重驗
-filename、SHA-256、source commit 與 tag 版本，成功後才允許發布工作開始。
+`release.yml` 在推送 `v<套件版本>` tag 時觸發；保留手動觸發以便從已選取的
+tag 做一次完整、全新的發布嘗試。`validate-release-ref` 強制 ref 類型為 tag，且
+tag 必須精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+$`：目前只接受三段式穩定版，避免
+預發布／post-release 的 Cargo 與 Python 版本正規化產生歧義。它呼叫 `python.yml`
+的 `workflow_call`：同一個 workflow run 會建置 9 組 wheels 與 sdist、產生
+manifest、各 wheel 安裝測試、從獨立解壓的 sdist 重建 wheel 並做 import／round-trip
+smoke test，然後把 manifest 和 distributions 封裝成 `release-batch` artifact。頂層
+release job 再以同一 manifest 重驗 filename、SHA-256、source commit 與 tag 版本，
+成功後才允許發布工作開始。
+
+一個 release 必須完全來自同一個 immutable `release-batch`。PyPI 發布絕不使用
+`skip-existing`，也沒有自動重建補檔路徑；手動觸發也一樣會建立與上傳完整的新 batch。
+在開始發布前，必須同步提升 core crate、Python binding crate 與
+`bindings/python/pyproject.toml` 所代表的套件版本，並確認三者與 tag 相同。
+`publish-crates` 會由 `cargo metadata` 讀取 `fastbase91-core` 的實際版本，與 tag 去掉
+`v` 後的版本逐字比較，不符即停止。將 `.crate` 一併納入 manifest 做遠端 hash 對照
+是 P10/P11 可再加強的項目；目前的必要 gate 是 core version 綁定 tag。
 
 PyPI Trusted Publisher 必須綁定下列值（P11 設定）：GitHub owner、repository、
 workflow filename **`release.yml`**，以及 GitHub protected environment **`pypi`**。
@@ -51,12 +62,14 @@ workflow filename 和 environment。`publish-pypi` 是頂層 workflow 中唯一�
 
 1. 下載 PyPI 與 crates.io 的實際檔案清單，逐一對照 release artifact 的
    `manifest.json` filename 與 SHA-256，並保存核對結果到 release issue 或紀錄。
-2. 若只是部分檔案漏傳，先確認已存在檔案的遠端 hash 與 manifest 相同；然後由
-   同一 `v<版本>` tag 手動執行 `release.yml`，勾選 `repair_missing`，讓 PyPI
-   僅跳過既有檔案。絕不可嘗試覆寫同名檔案。
-3. 若有錯檔、錯 hash 或安全問題，停止補檔：對 crates.io 使用
-   `cargo yank --vers <版本> fastbase91-core`，對 PyPI 依其當前 release/yank
-   管理介面標示受影響版本，並發布新的 post-release 版本；已發布檔案不得替換。
+2. 若部分發布失敗，**不得**以重建 batch 後跳過既有檔案來補檔。先停止所有發布；
+   可選擇將該版本在每個已發布 registry 全數 yank（crates.io：
+   `cargo yank --vers <版本> fastbase91-core`；PyPI：使用當前的 release/yank 管理
+   介面），同步更新三個版本後建立新 tag 並做全新發布；或只人工上傳原始、immutable
+   `release-batch` 中尚未上傳的檔案，且須先逐一核對遠端檔案與 manifest 的 SHA-256。
+   絕不可覆寫同名檔案，亦不可用新建 batch 與已存在檔案混成同一版本。
+3. 若有錯檔、錯 hash 或安全問題，停止補檔並將受影響版本全數 yank；已發布檔案
+   不得替換，改以新版本與新 tag 發布。
 
 ## Weekly canary 與 dead-man's switch
 
