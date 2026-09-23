@@ -4,13 +4,14 @@ on:
   push:
     tags:
       - "v*"
+      - "fastbase91-core-v*"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One release run per tag at a time. A second trigger waits; the per-registry
-# version guards below then reject it if the first run wrote either registry.
+# One release run per tag at a time. Registry version guards make a second run
+# fail closed if the first run has already published that independently versioned package.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -20,8 +21,11 @@ jobs:
     name: validate release tag
     runs-on: ubuntu-latest
     permissions: {}
+    outputs:
+      kind: ${{ steps.classify.outputs.kind }}
     steps:
-      - name: Require an exact stable release tag
+      - id: classify
+        name: Require and classify an exact stable release tag
         shell: bash
         run: |
           set -euo pipefail
@@ -29,22 +33,30 @@ jobs:
             echo "release publishing requires a tag ref, got: $GITHUB_REF_TYPE" >&2
             exit 1
           fi
-          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "release tag must match ^v[0-9]+\\.[0-9]+\\.[0-9]+$, got: $GITHUB_REF_NAME" >&2
+          if [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "kind=python" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF_NAME" =~ ^fastbase91-core-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "kind=core" >> "$GITHUB_OUTPUT"
+          else
+            echo "release tag must match ^v[0-9]+\\.[0-9]+\\.[0-9]+$ or ^fastbase91-core-v[0-9]+\\.[0-9]+\\.[0-9]+$, got: $GITHUB_REF_NAME" >&2
             exit 1
           fi
 
   build-test-and-batch:
-    name: build, test, and assemble release batch
+    name: build, test, and assemble Python release batch
     needs: validate-release-ref
+    if: ${{ needs.validate-release-ref.outputs.kind == 'python' }}
     uses: ./.github/workflows/python.yml
     permissions:
       contents: read
 
   verify-release-batch:
-    name: verify tagged release batch
-    needs: build-test-and-batch
+    name: verify tagged Python release batch
+    needs: [validate-release-ref, build-test-and-batch]
+    if: ${{ needs.validate-release-ref.outputs.kind == 'python' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
@@ -63,21 +75,87 @@ jobs:
             --expected-source-commit "$GITHUB_SHA" \
             --expected-version "${GITHUB_REF_NAME#v}"
 
+  verify-published-core:
+    name: require the wheel's exact core to be published first
+    needs: [validate-release-ref, verify-release-batch]
+    if: ${{ needs.validate-release-ref.outputs.kind == 'python' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CRATES_HAS_MAX_ATTEMPTS: "12"
+      CRATES_HAS_INTERVAL_SECONDS: "10"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+      - name: Require the exact embedded core version to exist on crates.io
+        shell: bash
+        run: |
+          set -euo pipefail
+          core_version="$(python -c 'import tomllib; print(tomllib.load(open("crates/fastbase91-core/Cargo.toml", "rb"))["package"]["version"])')"
+          core_tag="fastbase91-core-v${core_version}"
+
+          fail_core_first() {
+            echo "core 先發守衛失敗：先發 ${core_tag}，或先升 core 版號再發" >&2
+            exit "$1"
+          }
+
+          if ! git rev-parse --verify --quiet "refs/tags/${core_tag}^{commit}" >/dev/null; then
+            echo "required core tag is missing: ${core_tag}" >&2
+            fail_core_first 1
+          fi
+          if ! git diff --quiet "refs/tags/${core_tag}^{commit}" HEAD -- crates/fastbase91-core; then
+            echo "crates/fastbase91-core differs between ${core_tag} and HEAD" >&2
+            fail_core_first 1
+          fi
+          if [[ ! "$CRATES_HAS_MAX_ATTEMPTS" =~ ^[1-9][0-9]*$ ]] ||
+             [[ ! "$CRATES_HAS_INTERVAL_SECONDS" =~ ^[0-9]+$ ]]; then
+            echo "invalid bounded crates.io polling configuration" >&2
+            fail_core_first 2
+          fi
+
+          last_status=1
+          for ((attempt = 1; attempt <= CRATES_HAS_MAX_ATTEMPTS; attempt++)); do
+            if python .github/scripts/registry_state.py \
+              crates-has fastbase91-core "$core_version"; then
+              echo "published core prerequisite satisfied: ${core_tag}"
+              exit 0
+            else
+              last_status=$?
+            fi
+            if (( attempt < CRATES_HAS_MAX_ATTEMPTS )); then
+              echo "crates.io has not confirmed ${core_tag}; retrying (${attempt}/${CRATES_HAS_MAX_ATTEMPTS})" >&2
+              sleep "$CRATES_HAS_INTERVAL_SECONDS"
+            fi
+          done
+
+          if [[ "$last_status" -eq 2 ]]; then
+            echo "crates.io state query remained unavailable after ${CRATES_HAS_MAX_ATTEMPTS} attempts" >&2
+            fail_core_first 2
+          fi
+          echo "crates.io does not contain fastbase91-core ${core_version} after ${CRATES_HAS_MAX_ATTEMPTS} attempts" >&2
+          fail_core_first 1
+
   publish-pypi:
     name: publish Python distributions to PyPI
-    needs: verify-release-batch
+    needs: [validate-release-ref, verify-release-batch, verify-published-core]
+    if: ${{ needs.validate-release-ref.outputs.kind == 'python' }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Reject partial release job reruns
+      - name: Reject publish job reruns
         shell: bash
         run: |
           set -euo pipefail
           if [[ "$GITHUB_RUN_ATTEMPT" != "1" ]]; then
-            echo "partial publication failures must start a new complete release run (retag or use a new version); rerunning one job cannot complete a release" >&2
+            echo "published versions are immutable; start a new complete run from an unpublished version instead of rerunning a publish job" >&2
             exit 1
           fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -88,70 +166,76 @@ jobs:
         with:
           name: release-batch
           path: release-batch
-      - name: Require the release version to be absent from both registries
+      - name: Require the Python version to be absent from PyPI
         shell: bash
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-
-          require_absent() {
-            local registry="$1"
-            shift
-            if "$@"; then
-              echo "$registry already contains version $version; refusing to publish" >&2
-              exit 1
-            else
-              status=$?
-              if [[ "$status" -ne 1 ]]; then
-                echo "$registry state query failed with status $status; refusing to publish" >&2
-                exit "$status"
-              fi
+          if python .github/scripts/registry_state.py pypi-has fastbase91 "$version"; then
+            echo "PyPI already contains fastbase91 $version; refusing to publish" >&2
+            exit 1
+          else
+            status=$?
+            if [[ "$status" -ne 1 ]]; then
+              echo "PyPI state query failed with status $status; refusing to publish" >&2
+              exit "$status"
             fi
-          }
-
-          require_absent PyPI \
-            python .github/scripts/registry_state.py pypi-has fastbase91 "$version"
-          require_absent crates.io \
-            python .github/scripts/registry_state.py crates-has fastbase91-core "$version"
+          fi
       # Trusted Publishing deliberately omits username/password and requests only
       # an OIDC token in this isolated publish job.
       - uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70 # v1.12.3
         with:
           packages-dir: release-batch/artifacts
+      - name: Verify the published PyPI artifact set after propagation
+        shell: bash
+        run: |
+          python .github/scripts/registry_state.py \
+            pypi-set-matches fastbase91 "${GITHUB_REF_NAME#v}" release-batch/manifest.json
+
+  build-test-core:
+    name: build and test fastbase91-core
+    needs: validate-release-ref
+    if: ${{ needs.validate-release-ref.outputs.kind == 'core' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: clippy
+      # The Python release path builds and tests everything via python.yml; the
+      # decoupled core path must gate its own irreversible publish rather than
+      # trust that the tagged commit already passed CI.
+      - name: Lint and test the core crate before publishing
+        run: |
+          set -euo pipefail
+          cargo clippy -p fastbase91-core --all-targets --locked -- -D warnings
+          cargo test -p fastbase91-core --locked
 
   publish-crates:
     name: publish fastbase91-core to crates.io
-    # Serialized after PyPI so this job can require that registry to contain the
-    # exact wheel/sdist set from this run's verified manifest before crates.io is
-    # allowed to change.
-    needs: publish-pypi
+    needs: [validate-release-ref, build-test-core]
+    if: ${{ needs.validate-release-ref.outputs.kind == 'core' }}
     runs-on: ubuntu-latest
     environment: crates
     permissions:
       contents: read
     steps:
-      - name: Reject partial release job reruns
+      - name: Reject publish job reruns
         shell: bash
         run: |
           set -euo pipefail
           if [[ "$GITHUB_RUN_ATTEMPT" != "1" ]]; then
-            echo "partial publication failures must start a new complete release run (retag or use a new version); rerunning one job cannot complete a release" >&2
+            echo "published versions are immutable; start a new complete run from an unpublished version instead of rerunning a publish job" >&2
             exit 1
           fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: "3.13"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: release-batch
-          path: release-batch
-      # The first crates.io publication uses P11's scoped token. After that
-      # publication, P11 can configure crates.io OIDC and replace this path.
-      # Do not publish fastbase91-python: its path dependency lacks a core
-      # version and therefore remains intentionally unpublished until P11.
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-      - name: Require the core crate version to match the release tag
+      - name: Require the core crate version to match the core release tag
         shell: bash
         run: |
           set -euo pipefail
@@ -165,21 +249,20 @@ jobs:
               raise SystemExit(f"expected one fastbase91-core package, found {len(matches)}")
           print(matches[0]["version"])
           ')"
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${GITHUB_REF_NAME#fastbase91-core-v}"
           if [[ "$core_version" != "$tag_version" ]]; then
-            echo "fastbase91-core version $core_version does not match release tag $GITHUB_REF_NAME" >&2
+            echo "fastbase91-core version $core_version does not match core release tag $GITHUB_REF_NAME" >&2
             exit 1
           fi
-          echo "fastbase91-core version matches release tag: $core_version"
-      - name: Require crates.io absence and the exact PyPI manifest set
+          echo "fastbase91-core version matches core release tag: $core_version"
+      - name: Require the core version to be absent from crates.io
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-
+          version="${GITHUB_REF_NAME#fastbase91-core-v}"
           if python .github/scripts/registry_state.py \
             crates-has fastbase91-core "$version"; then
-            echo "crates.io already contains version $version; refusing to publish" >&2
+            echo "crates.io already contains fastbase91-core $version; refusing to publish" >&2
             exit 1
           else
             status=$?
@@ -188,9 +271,6 @@ jobs:
               exit "$status"
             fi
           fi
-
-          python .github/scripts/registry_state.py \
-            pypi-set-matches fastbase91 "$version" release-batch/manifest.json
       - name: Publish fastbase91-core to crates.io
         run: cargo publish -p fastbase91-core --locked
         env:

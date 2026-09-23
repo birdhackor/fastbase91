@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
 import string
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from enum import Enum, auto
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +22,14 @@ CRATES_BASE_URL = "https://crates.io/api/v1/crates"
 USER_AGENT = "fastbase91-release-registry-check/1.0"
 NOT_FOUND = object()
 ERROR = 2
+PYPI_SET_MATCH_TIMEOUT_ENV = "PYPI_SET_MATCH_TIMEOUT_SECONDS"
+PYPI_SET_MATCH_INTERVAL_ENV = "PYPI_SET_MATCH_INTERVAL_SECONDS"
+DEFAULT_PYPI_SET_MATCH_TIMEOUT_SECONDS = 120.0
+DEFAULT_PYPI_SET_MATCH_INTERVAL_SECONDS = 10.0
+
+# Tests replace these instead of waiting for the real polling budget.
+_sleep = time.sleep
+_monotonic = time.monotonic
 
 
 class RegistryStateError(RuntimeError):
@@ -36,7 +48,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     crates_has.add_argument("crate")
     crates_has.add_argument("version")
 
-    pypi_matches = subparsers.add_parser("pypi-set-matches")
+    pypi_matches = subparsers.add_parser(
+        "pypi-set-matches",
+        description=(
+            "Require the exact PyPI manifest set. Retry propagation-only missing "
+            "states and query errors for a bounded period. Configure the total "
+            f"budget with {PYPI_SET_MATCH_TIMEOUT_ENV} "
+            f"(default {DEFAULT_PYPI_SET_MATCH_TIMEOUT_SECONDS:g}) and the polling "
+            f"interval with {PYPI_SET_MATCH_INTERVAL_ENV} "
+            f"(default {DEFAULT_PYPI_SET_MATCH_INTERVAL_SECONDS:g}). A zero budget "
+            "performs one check without retrying."
+        ),
+    )
     pypi_matches.add_argument("package")
     pypi_matches.add_argument("version")
     pypi_matches.add_argument("manifest", type=Path)
@@ -186,12 +209,18 @@ def remote_pypi_files(files: list[Any], version: str) -> dict[str, str]:
     return actual
 
 
-def pypi_set_matches(package: str, version: str, manifest_path: Path) -> bool:
-    expected = manifest_pypi_files(manifest_path, package, version)
-    release = pypi_release(package, version)
+class PyPISetState(Enum):
+    MATCH = auto()
+    NOT_YET = auto()
+    CONFLICT = auto()
+    QUERY_ERROR = auto()
+
+
+def compare_pypi_file_sets(
+    expected: dict[str, str], release: list[Any] | None, version: str
+) -> tuple[PyPISetState, list[str]]:
     if release is None:
-        print(f"PyPI release is absent: {package} {version}", file=sys.stderr)
-        return False
+        return PyPISetState.NOT_YET, ["PyPI release is absent"]
     actual = remote_pypi_files(release, version)
 
     missing = sorted(set(expected) - set(actual))
@@ -201,17 +230,117 @@ def pypi_set_matches(package: str, version: str, manifest_path: Path) -> bool:
         for filename in set(expected) & set(actual)
         if expected[filename] != actual[filename]
     )
-    for filename in missing:
-        print(f"PyPI set mismatch: missing {filename}", file=sys.stderr)
-    for filename in unexpected:
-        print(f"PyPI set mismatch: unexpected {filename}", file=sys.stderr)
-    for filename in mismatched:
-        print(
+    messages = [f"PyPI set mismatch: missing {filename}" for filename in missing]
+    messages.extend(
+        f"PyPI set mismatch: unexpected {filename}" for filename in unexpected
+    )
+    messages.extend(
+        (
             f"PyPI set mismatch: sha256 differs for {filename}: "
-            f"manifest={expected[filename]} registry={actual[filename]}",
-            file=sys.stderr,
+            f"manifest={expected[filename]} registry={actual[filename]}"
         )
-    return not (missing or unexpected or mismatched)
+        for filename in mismatched
+    )
+    if unexpected or mismatched:
+        return PyPISetState.CONFLICT, messages
+    if missing:
+        return PyPISetState.NOT_YET, messages
+    return PyPISetState.MATCH, []
+
+
+def nonnegative_seconds_from_env(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        seconds = float(value)
+    except ValueError as error:
+        raise RegistryStateError(f"{name} must be a non-negative number") from error
+    if not math.isfinite(seconds) or seconds < 0:
+        raise RegistryStateError(f"{name} must be a non-negative number")
+    return seconds
+
+
+def format_seconds(seconds: float) -> str:
+    return f"{seconds:g}"
+
+
+def pypi_set_matches(
+    package: str,
+    version: str,
+    manifest_path: Path,
+    *,
+    timeout_seconds: float | None = None,
+    interval_seconds: float | None = None,
+) -> bool:
+    expected = manifest_pypi_files(manifest_path, package, version)
+    if timeout_seconds is None:
+        timeout_seconds = nonnegative_seconds_from_env(
+            PYPI_SET_MATCH_TIMEOUT_ENV, DEFAULT_PYPI_SET_MATCH_TIMEOUT_SECONDS
+        )
+    if interval_seconds is None:
+        interval_seconds = nonnegative_seconds_from_env(
+            PYPI_SET_MATCH_INTERVAL_ENV, DEFAULT_PYPI_SET_MATCH_INTERVAL_SECONDS
+        )
+    if not math.isfinite(timeout_seconds) or timeout_seconds < 0:
+        raise RegistryStateError(
+            f"{PYPI_SET_MATCH_TIMEOUT_ENV} must be a non-negative number"
+        )
+    if not math.isfinite(interval_seconds) or interval_seconds < 0:
+        raise RegistryStateError(
+            f"{PYPI_SET_MATCH_INTERVAL_ENV} must be a non-negative number"
+        )
+    if timeout_seconds > 0 and interval_seconds <= 0:
+        raise RegistryStateError(
+            f"{PYPI_SET_MATCH_INTERVAL_ENV} must be greater than zero when "
+            f"{PYPI_SET_MATCH_TIMEOUT_ENV} is greater than zero"
+        )
+
+    deadline = _monotonic() + timeout_seconds
+    while True:
+        query_error: RegistryStateError | None = None
+        try:
+            state, messages = compare_pypi_file_sets(
+                expected, pypi_release(package, version), version
+            )
+        except RegistryStateError as error:
+            state = PyPISetState.QUERY_ERROR
+            messages = []
+            query_error = error
+
+        if state is PyPISetState.MATCH:
+            return True
+        if state is PyPISetState.CONFLICT:
+            for message in messages:
+                print(message, file=sys.stderr)
+            return False
+
+        remaining = deadline - _monotonic()
+        if timeout_seconds == 0 or remaining <= 0:
+            if state is PyPISetState.QUERY_ERROR:
+                assert query_error is not None
+                if timeout_seconds == 0:
+                    raise query_error
+                raise RegistryStateError(
+                    "PyPI query did not recover within "
+                    f"{format_seconds(timeout_seconds)}s; last error: {query_error}"
+                ) from query_error
+            for message in messages:
+                print(message, file=sys.stderr)
+            print(
+                "PyPI did not reach the expected set within "
+                f"{format_seconds(timeout_seconds)}s: {package} {version}",
+                file=sys.stderr,
+            )
+            return False
+
+        if state is PyPISetState.QUERY_ERROR:
+            assert query_error is not None
+            print(f"PyPI query error (will retry): {query_error}", file=sys.stderr)
+        else:
+            for message in messages:
+                print(f"{message} (will retry)", file=sys.stderr)
+        _sleep(min(interval_seconds, remaining))
 
 
 def print_boolean(label: str, value: bool) -> int:
