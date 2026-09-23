@@ -4,8 +4,12 @@
 
 wheel matrix 的單一真值源是 `.github/wheel-matrix.json`；
 `.github/workflows/python.yml` 的 `build-wheels`、`test-wheels` 與 manifest
-完整性 gate 都讀取它。一般 CPython 用 `abi3-py311`，CPython 3.14t 用
-版本專屬 `cp314-cp314t`，CPython 3.15+ 用 `abi3t-py315`。新增或移除
+完整性 gate 都讀取它。目前發行兩層（皆三平台）：一般 CPython 用 `abi3-py311`，
+CPython 3.14t 用版本專屬 `cp314-cp314t`。**`abi3t-py315`（CPython 3.15+ free-threaded
+stable ABI）暫緩**：Python 3.15 尚未釋出，`actions/setup-python` 在 Windows／macOS runner
+取不到 `3.15t`（manylinux 容器雖有 dev build，但只在單一平台成得了、stable-ABI wheel 不成套，
+且對未釋出、ABI 未定版的 Python 發 wheel 過早）。待 3.15 能在三平台端到端建置後，再把該層
+三個 entry 加回 `wheel-matrix.json`，並依下段新 free-threaded wheel 的納入流程驗證。新增或移除
 Python／平台時，必須更新這份 matrix、確認實際安裝 smoke test，以及更新
 這份文件。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
 必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel，另須恰有一份 sdist，

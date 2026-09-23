@@ -25,18 +25,6 @@
       "platform_tag_regex": "manylinux_2_28_(?:x86_64|aarch64)"
     },
     {
-      "id": "abi3t-py315-manylinux",
-      "os": "ubuntu-latest",
-      "interpreter": "python3.15t",
-      "build_python_version": "",
-      "manylinux": "2_28",
-      "test_python_version": "3.15t",
-      "free_threaded": true,
-      "python_tag": "cp315",
-      "abi_tag": "abi3t",
-      "platform_tag_regex": "manylinux_2_28_(?:x86_64|aarch64)"
-    },
-    {
       "id": "abi3-py311-windows",
       "os": "windows-latest",
       "interpreter": "python",
@@ -61,18 +49,6 @@
       "platform_tag_regex": "win_amd64"
     },
     {
-      "id": "abi3t-py315-windows",
-      "os": "windows-latest",
-      "interpreter": "python",
-      "build_python_version": "3.15t",
-      "manylinux": "off",
-      "test_python_version": "3.15t",
-      "free_threaded": true,
-      "python_tag": "cp315",
-      "abi_tag": "abi3t",
-      "platform_tag_regex": "win_amd64"
-    },
-    {
       "id": "abi3-py311-macos",
       "os": "macos-latest",
       "interpreter": "python",
@@ -94,18 +70,6 @@
       "free_threaded": true,
       "python_tag": "cp314",
       "abi_tag": "cp314t",
-      "platform_tag_regex": "macosx_[0-9]+_[0-9]+_(?:x86_64|arm64)"
-    },
-    {
-      "id": "abi3t-py315-macos",
-      "os": "macos-latest",
-      "interpreter": "python",
-      "build_python_version": "3.15t",
-      "manylinux": "off",
-      "test_python_version": "3.15t",
-      "free_threaded": true,
-      "python_tag": "cp315",
-      "abi_tag": "abi3t",
       "platform_tag_regex": "macosx_[0-9]+_[0-9]+_(?:x86_64|arm64)"
     }
   ]
