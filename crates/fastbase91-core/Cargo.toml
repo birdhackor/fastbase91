@@ -10,3 +10,7 @@ description = "Safe no_std core for fastbase91"
 default = ["std"]
 alloc = []
 std = ["alloc"]
+
+[[bench]]
+name = "throughput"
+harness = false
