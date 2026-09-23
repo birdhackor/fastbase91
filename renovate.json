@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "enabledManagers": [
+    "cargo",
+    "github-actions",
+    "pep621",
+    "pip_requirements"
+  ],
+  "timezone": "Asia/Taipei",
+  "schedule": [
+    "* 0-5 * * 0"
+  ],
+  "packageRules": [
+    {
+      "description": "Keep action digest updates reviewable as one batch",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions pins"
+    },
+    {
+      "description": "Keep Rust and Python dependency changes together for CI review",
+      "matchManagers": [
+        "cargo",
+        "pep621",
+        "pip_requirements"
+      ],
+      "groupName": "Rust and Python dependencies"
+    },
+    {
+      "description": "PyO3 pre-1.0 updates always require human review",
+      "matchPackageNames": [
+        "pyo3"
+      ],
+      "automerge": false
+    }
+  ]
+}

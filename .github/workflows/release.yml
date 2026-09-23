@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      repair_missing:
+        description: "Permit PyPI to skip already-present files after a remote hash audit"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-and-batch:
+    name: build, test, and assemble release batch
+    uses: ./.github/workflows/python.yml
+    permissions:
+      contents: read
+
+  verify-release-batch:
+    name: verify tagged release batch
+    needs: build-test-and-batch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-batch
+          path: release-batch
+      - name: Verify manifest, hashes, source commit, and tag version
+        shell: bash
+        run: |
+          python .github/scripts/verify-batch.py \
+            --manifest release-batch/manifest.json \
+            --artifacts release-batch/artifacts \
+            --expected-source-commit "$GITHUB_SHA" \
+            --expected-version "${GITHUB_REF_NAME#v}"
+
+  publish-pypi:
+    name: publish Python distributions to PyPI
+    needs: verify-release-batch
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-batch
+          path: release-batch
+      # Trusted Publishing deliberately omits username/password and requests only
+      # an OIDC token in this isolated publish job.
+      - uses: pypa/gh-action-pypi-publish@67339c736fd9354cd4f8cb0b744f2b82a74b5c70 # v1.12.3
+        with:
+          packages-dir: release-batch/artifacts
+          skip-existing: ${{ inputs.repair_missing || false }}
+
+  publish-crates:
+    name: publish fastbase91-core to crates.io
+    needs: verify-release-batch
+    runs-on: ubuntu-latest
+    environment: crates
+    permissions:
+      contents: read
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # The first crates.io publication uses P11's scoped token. After that
+      # publication, P11 can configure crates.io OIDC and replace this path.
+      # Do not publish fastbase91-python: its path dependency lacks a core
+      # version and therefore remains intentionally unpublished until P11.
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - run: cargo publish -p fastbase91-core --locked
