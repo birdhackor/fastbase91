@@ -352,6 +352,8 @@ impl Decoder {
 
 #[pymodule(gil_used = false)]
 fn _fastbase91(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    module.add("CORE_VERSION", fastbase91_core::VERSION)?;
     module.add("DecodeError", module.py().get_type::<DecodeError>())?;
     module.add_function(wrap_pyfunction!(encode, module)?)?;
     module.add_function(wrap_pyfunction!(decode, module)?)?;

@@ -1,4 +1,5 @@
 import random
+import re
 import sys
 import sysconfig
 from array import array
@@ -22,6 +23,12 @@ ROUND_TRIP_CASES = [
     _random_bytes(91, 257),
     _random_bytes(9_191, 128 * 1024),
 ]
+
+
+def test_package_and_core_versions_are_exposed():
+    version_pattern = re.compile(r"\d+\.\d+\.\d+")
+    assert version_pattern.fullmatch(fastbase91.__version__)
+    assert version_pattern.fullmatch(fastbase91.CORE_VERSION)
 
 
 @pytest.mark.parametrize(

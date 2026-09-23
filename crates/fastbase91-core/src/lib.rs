@@ -8,6 +8,9 @@ mod decode;
 mod encode;
 mod tables;
 
+/// The version of this core crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub use decode::{max_decoded_len, DecodeError, DecodeOptions, Decoder};
 pub use encode::{max_encoded_len, EncodeError, Encoder, OutputTooSmall};
 
@@ -49,5 +52,11 @@ mod tests {
             Ok(5)
         );
         assert_eq!(&output[..5], b"\xfb\x8d\xca\x1d\xab");
+    }
+
+    #[test]
+    fn version_matches_package_metadata() {
+        assert_eq!(VERSION, env!("CARGO_PKG_VERSION"));
+        assert!(!VERSION.is_empty());
     }
 }

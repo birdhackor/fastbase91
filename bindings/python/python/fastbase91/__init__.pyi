@@ -1,5 +1,8 @@
 from typing import Protocol
 
+__version__: str
+CORE_VERSION: str
+
 
 class ReadableBuffer(Protocol):
     def __buffer__(self, flags: int, /) -> memoryview: ...

@@ -8,6 +8,22 @@ raises ``ImportError``. Use one :class:`Encoder`/:class:`Decoder` per stream or
 thread; a concurrent ``update`` on the same instance raises ``RuntimeError``.
 """
 
-from ._fastbase91 import DecodeError, Decoder, Encoder, decode, encode
+from ._fastbase91 import (
+    CORE_VERSION,
+    DecodeError,
+    Decoder,
+    Encoder,
+    __version__,
+    decode,
+    encode,
+)
 
-__all__ = ["DecodeError", "Decoder", "Encoder", "decode", "encode"]
+__all__ = [
+    "CORE_VERSION",
+    "DecodeError",
+    "Decoder",
+    "Encoder",
+    "__version__",
+    "decode",
+    "encode",
+]
