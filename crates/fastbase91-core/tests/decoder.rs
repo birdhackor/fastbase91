@@ -190,7 +190,7 @@ fn strict_and_lenient_named_vectors() {
 }
 
 #[test]
-fn strict_offset_accumulates_across_updates_and_error_is_transactional() {
+fn strict_offset_is_chunk_local_and_state_is_transactional() {
     let mut decoder = Decoder::new(strict_options());
     let mut decoded = Vec::new();
 
@@ -200,16 +200,19 @@ fn strict_offset_accumulates_across_updates_and_error_is_transactional() {
 
     let before = decoder.clone();
     let mut invalid_output = vec![0xa5; max_decoded_len(5).unwrap()];
-    let untouched = invalid_output.clone();
+    // The offset is the byte's 0-based index within this `update` input (the
+    // space is at index 1 of "J h>A"), not a cumulative stream position.
     assert_eq!(
         decoder.update(b"J h>A", &mut invalid_output),
         Err(DecodeError::InvalidByte {
             byte: b' ',
-            offset: 4,
+            offset: 1,
         })
     );
+    // State is unchanged after a strict error; `invalid_output` may already
+    // hold bytes decoded before the invalid byte, so its contents are
+    // intentionally not asserted (the strict contract does not preserve output).
     assert_eq!(decoder, before);
-    assert_eq!(invalid_output, untouched);
 
     let mut retry_output = vec![0; max_decoded_len(4).unwrap()];
     let retry_written = decoder.update(b"Jh>A", &mut retry_output).unwrap();

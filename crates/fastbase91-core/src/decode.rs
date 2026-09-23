@@ -102,7 +102,6 @@ pub struct Decoder {
     pending: Option<u8>,
     queue: u32,
     nbits: u8,
-    consumed: usize,
 }
 
 impl Decoder {
@@ -113,39 +112,32 @@ impl Decoder {
             pending: None,
             queue: 0,
             nbits: 0,
-            consumed: 0,
         }
     }
 
     /// Decodes a chunk into caller-provided storage.
     ///
-    /// If an error is returned, neither the decoder state nor the output slice
-    /// is changed. Capacity is checked first using a content-independent upper
-    /// bound. Strict decoding then checks the entire chunk before decoding it.
+    /// Capacity is checked first using a content-independent upper bound; on
+    /// [`OutputTooSmall`](DecodeError::OutputTooSmall) neither the decoder state
+    /// nor the output is changed. In strict mode the first byte outside the
+    /// alphabet stops decoding with [`InvalidByte`](DecodeError::InvalidByte),
+    /// whose `offset` is the 0-based index of that byte within this `input`; the
+    /// decoder state is left unchanged, but bytes already written to `output`
+    /// are unspecified and must be discarded.
     pub fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
         let required = self.update_capacity(input.len());
         if output.len() < required {
             return Err(DecodeError::OutputTooSmall(OutputTooSmall::new(required)));
         }
 
-        if self.options.reject_non_alphabet {
-            if let Some((offset, &byte)) = input
-                .iter()
-                .enumerate()
-                .find(|&(_, &byte)| DECODE_TABLE[usize::from(byte)] == 91)
-            {
-                return Err(DecodeError::InvalidByte {
-                    byte,
-                    offset: self.consumed.saturating_add(offset),
-                });
-            }
-        }
-
         let mut working = self.clone();
         let mut written = 0;
-        for &byte in input {
+        for (offset, &byte) in input.iter().enumerate() {
             let value = DECODE_TABLE[usize::from(byte)];
             if value == 91 {
+                if self.options.reject_non_alphabet {
+                    return Err(DecodeError::InvalidByte { byte, offset });
+                }
                 continue;
             }
             if let Some(first) = working.pending.take() {
@@ -162,7 +154,6 @@ impl Decoder {
                 working.pending = Some(value);
             }
         }
-        working.consumed = working.consumed.saturating_add(input.len());
         *self = working;
         Ok(written)
     }
@@ -271,7 +262,6 @@ mod tests {
                     pending,
                     queue: 0,
                     nbits,
-                    consumed: 0,
                 };
                 for input_len in [0, 1, 2, 7, 8, 9, usize::MAX] {
                     let pairs = input_len as u128 / 2
