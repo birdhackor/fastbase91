@@ -31,37 +31,60 @@ PyO3：在 release note 宣告停產，移除該 matrix entry，並保留仍受�
 
 ## 發布
 
-`release.yml` 在推送 `v<套件版本>` tag 時觸發；保留手動觸發以便從已選取的
-tag 做一次完整、全新的發布嘗試。`validate-release-ref` 強制 ref 類型為 tag，且
-tag 必須精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+$`：目前只接受三段式穩定版，避免
-預發布／post-release 的 Cargo 與 Python 版本正規化產生歧義。它呼叫 `python.yml`
-的 `workflow_call`：同一個 workflow run 會建置 9 組 wheels 與 sdist、產生
-manifest、各 wheel 安裝測試、從獨立解壓的 sdist 重建 wheel 並做 import／round-trip
-smoke test，然後把 manifest 和 distributions 封裝成 `release-batch` artifact。頂層
-release job 再以同一 manifest 重驗 filename、SHA-256、source commit 與 tag 版本，
-成功後才允許發布工作開始。
+core 與 Python 套件採兩條獨立版本線，首發版號雖然都是 `0.1.0`，後續不要求同步升版：
 
-一個 release 必須完全來自同一個 immutable `release-batch`。PyPI 發布絕不使用
-`skip-existing`，也沒有自動重建補檔路徑；手動觸發也一樣會建立與上傳完整的新 batch。
-`publish-pypi` 與 `publish-crates` 串成固定順序（crates 在 PyPI 成功後才跑），且以
-`concurrency` group 綁 tag，使同一 tag 一次只跑一個 release run。GitHub 的
-`gh run rerun --failed` 與指定單一 job 重跑功能確實存在，但兩個 publish job 都要求
-`GITHUB_RUN_ATTEMPT == 1`；任何 run 內重跑都會在入口停止，不能拿成功 job 的結果補跑
-失敗的 registry。
+- Python tag `vX.Y.Z` 只建置並發布 `fastbase91` wheel 與 sdist 到 PyPI。
+- core tag `fastbase91-core-vX.Y.Z` 只發布 `fastbase91-core` 到 crates.io。
 
-registry guard 分兩階段：第一個寫入者 `publish-pypi` 要求 PyPI 與 crates.io 都沒有該
-版本；第二個寫入者 `publish-crates` 要求 crates.io 沒有該版本，且 PyPI 上該版本的
-filename + SHA-256 集合恰等於本次 manifest 的全部 wheel 與 sdist。404 代表不存在；
-其他 HTTP、網路、JSON 或 schema 錯誤一律 fail-closed。這使正常首發可由剛完成的 PyPI
-批次繼續到 crates，同 tag 的第二個 run 則不能把另一批產物拼進既有版本。
+兩種 tag 都進入單一 `.github/workflows/release.yml`，再由 `validate-release-ref` 的 `kind`
+output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+$` 或
+`^fastbase91-core-v[0-9]+\.[0-9]+\.[0-9]+$`；目前只接受三段式穩定版。保留
+`workflow_dispatch`，但手動執行時也必須選取符合規則的 tag。`concurrency` 以完整 ref
+分組，使同一 tag 一次只跑一個 release run；兩種 tag 彼此不串接。
 
-在開始發布前，必須同步提升 `fastbase91-core` 與 `fastbase91-python` 兩份 Cargo
-版本，並確認兩者與 tag 相同。`bindings/python/pyproject.toml` 使用
-`dynamic = ["version"]`，版本由 Cargo metadata 提供，沒有第三個獨立版本欄；另須核對
-建出的 Python wheel 與 sdist 版本等於 tag。
-`publish-crates` 會由 `cargo metadata` 讀取 `fastbase91-core` 的實際版本，與 tag 去掉
-`v` 後的版本逐字比較，不符即停止。將 `.crate` 一併納入 manifest 做遠端 hash 對照
-是 P10/P11 可再加強的項目；目前的必要 gate 是 core version 綁定 tag。
+### core 發布
+
+1. 只提升 `crates/fastbase91-core/Cargo.toml` 的版本。若 binding 的 dependency lock
+   需要更新，執行 `cargo update -p fastbase91-core` 並提交同步後的 `Cargo.lock`。
+2. 執行 `cargo package -p fastbase91-core --list`，確認只含預期原始碼、benchmark 與授權檔，
+   再完成測試與 dry-run 審查。
+3. 在要發布的 commit 建立並推送 `fastbase91-core-vX.Y.Z`。workflow 以
+   `cargo metadata` 確認 crate 版本等於 tag 版本，並以單次、fail-closed 的
+   `crates-has` 查詢要求該版本尚不存在，然後執行
+   `cargo publish -p fastbase91-core --locked`。
+4. 等 crates.io 已能查到該版本，再發布任何內含這版 core 的 Python wheel。
+
+`bindings/python/Cargo.toml` 的 binding crate 設為 `publish = false`；它是 Python
+`cdylib` 建置單元，永遠不發布到 crates.io。
+
+### Python 發布與 core 先發不變式
+
+1. 只提升 `bindings/python/Cargo.toml` 的版本。`bindings/python/pyproject.toml` 保持
+   `dynamic = ["version"]`，Python 套件版本來自 binding Cargo metadata。
+2. 若 core 沒有改，只建立並推送 `vA.B.C`。若 core 有改，先依上一節推送 core tag、
+   等 crates.io 落地，再推送 Python tag。共同發布時兩個 tag 指向同一 commit，而且
+   **先推 core tag**；可以緊接著推 Python tag，wheel 守衛會有界輪詢等待 crates.io。
+3. Python 線呼叫 `python.yml` 的 `workflow_call`，建置 9 組 wheels 與 sdist、產生
+   manifest、做安裝與 sdist 重建測試，並組成 immutable `release-batch`。頂層 job
+   再重驗 filename、SHA-256、source commit 與 Python tag 版本。
+4. 發布前的 core 先發守衛由 `crates/fastbase91-core/Cargo.toml` 讀取 core 版本 V，
+   並要求三件事全成立：(a) git 有 `fastbase91-core-vV`；(b) HEAD 的
+   `crates/fastbase91-core` 子樹與該 tag 無差異；(c) crates.io 已有
+   `fastbase91-core` V。缺 tag、子樹不同或有界輪詢後仍不存在皆停止；registry 查詢
+   持續出錯也會 fail-closed。前兩項證明 wheel 內含的 core 來源與已標記版本相同，
+   第三項證明該版本已先發布。直接下載 `.crate` 逐檔比對是不信任本地 tag 的 P11
+   強化項，目前不在 gate 內。
+5. `publish-pypi` 以單次、fail-closed 的 `pypi-has` 查詢要求 `fastbase91` 的 Python
+   版本尚不存在，並以 Trusted Publishing OIDC 上傳完整 `release-batch/artifacts`；
+   不使用 token 或 `skip-existing`。
+6. 上傳後，同一 job 執行 `pypi-set-matches`。它對 PyPI 的 filename + SHA-256 集合
+   做有上限輪詢：缺 release／缺檔可等待傳播，非預期檔或 hash 衝突立即失敗，查詢錯誤
+   只在有限預算內重試；逾時會讓 job 失敗並告警。這是發布後核對，不是 core 發布的
+   前置條件。
+
+兩個 publish job 都要求 `GITHUB_RUN_ATTEMPT == 1`。發布前「版本必須不存在」的
+`pypi-has`／`crates-has` 不做重試，以免暫時查不到被誤判成安全；只有 Python 的
+「core 必須已存在」守衛會輪詢 `crates-has`。
 
 PyPI Trusted Publisher 必須綁定下列值（P11 設定）：GitHub owner、repository、
 workflow filename **`release.yml`**，以及 GitHub protected environment **`pypi`**。
@@ -69,27 +92,25 @@ workflow filename **`release.yml`**，以及 GitHub protected environment **`pyp
 workflow filename 和 environment。`publish-pypi` 是頂層 workflow 中唯一持有
 `id-token: write` 的 job，刻意不配置 PyPI API token。
 
-`publish-crates` 只發布 `fastbase91-core`，在 protected environment `crates` 使用
-`CARGO_REGISTRY_TOKEN` 完成首次 crates.io 發布；首發後依 crates.io 當時的 OIDC
-設定改用信任式身分。不得發布 `fastbase91-python`：它對 core 的 path dependency
-尚未給 `version`。待 P11 補上 version、完成 package/dry-run 審查後，才能另行
-設計 binding crate 的發布流程。
+`publish-crates` 在 protected environment `crates` 使用最小權限
+`CARGO_REGISTRY_TOKEN`。GitHub environment 的 selected deployment tag 規則必須設為
+`pypi` 僅允許 `v*`，`crates` 僅允許 `fastbase91-core-v*`；配合 workflow 分流，確保
+每個 secret／OIDC 身分只從自己的 tag 樣式可達。
 
 ## 發布後與補救
 
-1. 下載 PyPI 與 crates.io 的實際檔案清單，逐一對照 release artifact 的
-   `manifest.json` filename 與 SHA-256，並保存核對結果到 release issue 或紀錄。
-2. 若部分發布失敗，**不得**以 `gh run rerun --failed`、單 job 重跑或重建 batch 後
-   跳過既有檔案來補檔。若尚未寫入任一 registry，可從同一 tag 開一個新的完整 run；
-   若任一 registry 已寫入，先停止所有發布，將該版本在每個已發布 registry 全數 yank
-   （crates.io：
-   `cargo yank --vers <版本> fastbase91-core`；PyPI：使用當前的 release/yank 管理
-   介面），同步更新兩份 Cargo 版本後建立新 tag 並做全新發布。`release-batch` 目前沒有
-   保存 `cargo package` 產生的原始 `.crate`；若 crates 發布失敗，沒有可識別的原始
-   `.crate` 可供補傳，只能 yank／換新版本，絕不可重建一顆 `.crate` 冒充原產物。
-   絕不可覆寫同名檔案，亦不可用新建 batch 與已存在檔案混成同一版本。
-3. 若有錯檔、錯 hash 或安全問題，停止補檔並將受影響版本全數 yank；已發布檔案
-   不得替換，改以新版本與新 tag 發布。
+core 與 Python 是獨立發布線，不構成跨網站交易：一條線成功後，另一條仍可能自行失敗，
+也不應因此回滾已成功的另一條線。PyPI 的 `pypi-set-matches` 只驗證該 Python 發布，
+不提供跨 registry 原子性。
+
+每條線各自遵守以下復原規則：
+
+1. 版本尚未寫入該 registry 時，可從同一 tag 開一個新的完整 run；不可重跑 publish job。
+2. 版本已存在即拒發，絕不覆寫或用重建產物補成同一版本。若內容錯誤或發布不完整，
+   在該 registry yank 受影響版本（crates.io：
+   `cargo yank --vers <版本> fastbase91-core`；PyPI 使用當前 release/yank 管理介面），
+   只提升該套件自己的版號、建立該版本線的新 tag，再做全新發布。
+3. 一條線失敗不牽動另一條；但新的 Python 發布仍必須通過 core 先發不變式。
 
 ## Weekly canary 與 dead-man's switch
 
@@ -105,13 +126,12 @@ workflow filename 和 environment。`publish-pypi` 是頂層 workflow 中唯一�
 
 ## P11 上線待辦
 
-- 確認各 package／distribution 所需的版權持有人與 copyright notice。
 - 設定 PyPI pending publisher/Trusted Publisher 與 protected `pypi` environment，
-  並限制可部署的 tag；確認 trust binding 的 workflow filename 是 `release.yml`。
+  限制 deployment tag 為 `v*`；確認 trust binding 的 workflow filename 是 `release.yml`。
 - 設定 protected `crates` environment 與最小權限的 `CARGO_REGISTRY_TOKEN`；首發後
-  依 crates.io OIDC 支援狀態遷移。
+  限制 deployment tag 為 `fastbase91-core-v*`，並依 crates.io OIDC 支援狀態遷移。
 - 設定 `HEALTHCHECKS_PING_URL` secret 與外部 dead-man's-switch 告警。
-- 在 `fastbase91-python` 的 core path dependency 加入正確的 core `version`、完成
-  package/dry-run 審查後，才討論發布 binding crate。
+- 強化 core 先發守衛：下載 crates.io 的 `.crate`，逐檔比對本地 core package，避免只信任
+  git tag 與 registry 版本存在性。
 - 實際推送測試 tag／正式 tag 前，確認 GitHub environment protection、PyPI project
   name、crates.io package name和 remote artifact hash 核對流程均已就緒。
