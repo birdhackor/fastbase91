@@ -20,10 +20,15 @@ bindings/python/.venv/bin/python bindings/python/benches/p7_measure.py compare -
 ```
 
 The release `shipping` build is the normal binding: one-shot `encode` and
-`decode` detach on every call. `bench_no_detach` is an opt-in, benchmark-only
-Cargo feature that selects an alternative one-shot path while it is built; it
-must not be used for a shipping wheel. Its only purpose is to make the median
-`shipping - bench_no_detach` latency difference observable.
+`decode` release the GIL via `Python::detach` only when the input is at least
+`ONESHOT_DETACH_THRESHOLD` (1 KiB); smaller one-shots keep the GIL and skip the
+detach overhead. `bench_no_detach` is an opt-in, benchmark-only Cargo feature
+that disables detach entirely for every one-shot; it must not be used for a
+shipping wheel. Diffing a detaching build against `bench_no_detach` isolates the
+per-call detach/reattach cost. The P7 pass established that cost against an
+always-detach build (before the threshold constant existed); to re-validate the
+threshold on another machine, temporarily set `ONESHOT_DETACH_THRESHOLD` to 0 so
+every size detaches, then diff against `bench_no_detach`.
 
 The harness writes raw JSON, including every individual `perf_counter_ns`
 sample. The `render` subcommand prints compact tables, while `compare` prints

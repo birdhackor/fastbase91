@@ -148,6 +148,24 @@ fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u
     }
 }
 
+/// One-shot inputs at or above this size release the GIL via `Python::detach`.
+///
+/// P7 measured the per-call detach/reattach cost at roughly 80-125 ns: material
+/// (up to ~40%) for sub-256-byte calls, but noise-level once compute reaches the
+/// microsecond range near 1 KiB, where releasing the GIL also begins to earn
+/// concurrency (the scaling benchmark shows one-shot calls overlapping). Below
+/// this size the binding keeps the GIL and skips the detach overhead, honoring
+/// the brief's "do not detach on every call" contract.
+const ONESHOT_DETACH_THRESHOLD: usize = 1024;
+
+/// Whether a one-shot call of `len` input bytes should release the GIL.
+///
+/// The `bench_no_detach` benchmark feature forces this off so the harness can
+/// isolate the detach/reattach cost; it must never ship in a wheel.
+fn should_detach(len: usize) -> bool {
+    !cfg!(feature = "bench_no_detach") && len >= ONESHOT_DETACH_THRESHOLD
+}
+
 /// Encode a bytes-like object and return `bytes`.
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
@@ -155,16 +173,12 @@ fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u
 #[pyo3(signature = (data, /))]
 fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
     let input = copy_input(py, data)?;
-    #[cfg(feature = "bench_no_detach")]
-    {
-        let output = fastbase91_core::encode(input.as_slice()).map_err(encode_error)?;
-        return to_py_bytes(py, &output);
+    let output = if should_detach(input.len()) {
+        py.detach(move || fastbase91_core::encode(input.as_slice()))
+    } else {
+        fastbase91_core::encode(input.as_slice())
     }
-
-    #[cfg_attr(feature = "bench_no_detach", allow(unreachable_code))]
-    let output = py
-        .detach(move || fastbase91_core::encode(input.as_slice()))
-        .map_err(encode_error)?;
+    .map_err(encode_error)?;
     to_py_bytes(py, &output)
 }
 
@@ -181,17 +195,12 @@ fn decode<'py>(
     let input = copy_input(py, data)?;
     let mut options = DecodeOptions::new();
     options.reject_non_alphabet = strict;
-    #[cfg(feature = "bench_no_detach")]
-    {
-        let output = fastbase91_core::decode(input.as_slice(), options)
-            .map_err(|error| decode_error(py, error))?;
-        return to_py_bytes(py, &output);
+    let output = if should_detach(input.len()) {
+        py.detach(move || fastbase91_core::decode(input.as_slice(), options))
+    } else {
+        fastbase91_core::decode(input.as_slice(), options)
     }
-
-    #[cfg_attr(feature = "bench_no_detach", allow(unreachable_code))]
-    let output = py
-        .detach(move || fastbase91_core::decode(input.as_slice(), options))
-        .map_err(|error| decode_error(py, error))?;
+    .map_err(|error| decode_error(py, error))?;
     to_py_bytes(py, &output)
 }
 
