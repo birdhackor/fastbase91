@@ -33,9 +33,15 @@ every size detaches, then diff against `bench_no_detach`.
 The harness writes raw JSON, including every individual `perf_counter_ns`
 sample. The `render` subcommand prints compact tables, while `compare` prints
 the detach delta beside the common 1 KiB and 64 KiB points emitted by the
-unchanged core benchmark, plus a 1 MiB timing decomposition. The existing core
-benchmark does not emit other small-payload sizes, so the comparison labels
-those cells `NA` rather than interpolating them.
+unchanged core benchmark, plus a 1 MiB timing decomposition. Each build records
+its effective detach floor (`_MIN_DETACH_LEN`), so `compare` marks the
+`detach_delta_ns` cell `NA` for any row where the two builds do not form a
+detach-vs-no-detach pair -- for example a sub-1 KiB input, where the shipping
+threshold build also skips detach and the raw delta is not the detach cost. The
+check keys on each record's real `source_bytes`, so decode rows use their
+encoded input length rather than the original size. The existing core benchmark
+does not emit other small-payload sizes, so those core cells are `NA` rather
+than interpolated.
 
 ## Protocol
 

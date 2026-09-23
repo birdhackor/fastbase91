@@ -158,12 +158,26 @@ fn streaming_decode_error(py: Python<'_>, error: CoreDecodeError, base_offset: u
 /// the brief's "do not detach on every call" contract.
 const ONESHOT_DETACH_THRESHOLD: usize = 1024;
 
+/// The smallest one-shot input length that releases the GIL in this build.
+///
+/// `bench_no_detach` never detaches, reported as `usize::MAX` so the P7 harness
+/// can mark comparison rows where neither build detaches as not-applicable
+/// rather than misreading a near-zero delta as the detach cost. Exposed to
+/// Python as the module's `_MIN_DETACH_LEN`.
+fn min_detach_len() -> usize {
+    if cfg!(feature = "bench_no_detach") {
+        usize::MAX
+    } else {
+        ONESHOT_DETACH_THRESHOLD
+    }
+}
+
 /// Whether a one-shot call of `len` input bytes should release the GIL.
 ///
-/// The `bench_no_detach` benchmark feature forces this off so the harness can
-/// isolate the detach/reattach cost; it must never ship in a wheel.
+/// The `bench_no_detach` benchmark feature raises the floor past every real
+/// input so it never detaches; it must never ship in a wheel.
 fn should_detach(len: usize) -> bool {
-    !cfg!(feature = "bench_no_detach") && len >= ONESHOT_DETACH_THRESHOLD
+    len >= min_detach_len()
 }
 
 /// Encode a bytes-like object and return `bytes`.
@@ -318,5 +332,9 @@ fn _fastbase91(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(decode, module)?)?;
     module.add_class::<Encoder>()?;
     module.add_class::<Decoder>()?;
+    // Internal introspection for the P7 benchmark harness: the effective one-shot
+    // detach floor for this build (ONESHOT_DETACH_THRESHOLD, or usize::MAX under
+    // bench_no_detach). Not part of the public API.
+    module.add("_MIN_DETACH_LEN", min_detach_len())?;
     Ok(())
 }

@@ -238,6 +238,7 @@ def environment(variant):
     return {
         "variant_label": variant,
         "build_profile": "release",
+        "min_detach_len": fastbase91._fastbase91._MIN_DETACH_LEN,
         "timer": "time.perf_counter_ns",
         "python": sys.version,
         "executable": sys.executable,
@@ -406,18 +407,35 @@ def compare(args):
     shipping = json.loads(args.shipping.read_text(encoding="utf-8"))
     no_detach = json.loads(args.no_detach.read_text(encoding="utf-8"))
     core = json.loads(args.core.read_text(encoding="utf-8"))
+    ship_floor = shipping["environment"]["min_detach_len"]
+    no_floor = no_detach["environment"]["min_detach_len"]
     print("DETACH_COST_VS_CORE")
     print(
-        "operation\toriginal_size_bytes\tshipping_ns\tno_detach_ns\t"
-        "shipping_minus_no_detach_ns\tcore_one_shot_ns\tcore_slice_preallocated_ns"
+        f"# shipping detaches at input >= {ship_floor} bytes; "
+        f"no_detach detaches at input >= {no_floor} bytes; "
+        "detach_delta_ns is NA unless exactly the shipping side detaches"
+    )
+    print(
+        "operation\toriginal_size_bytes\tsource_bytes\tshipping_ns\tno_detach_ns\t"
+        "detach_delta_ns\tcore_one_shot_ns\tcore_slice_preallocated_ns"
     )
     for operation in ("encode", "decode"):
         for size in SMALL_SIZES:
             ship = index_record(shipping["small_latency"], operation, size)
             no = index_record(no_detach["small_latency"], operation, size)
+            source_bytes = ship["source_bytes"]
+            ship_detaches = source_bytes >= ship_floor
+            no_detaches = no["source_bytes"] >= no_floor
+            if ship_detaches and not no_detaches:
+                delta = str(ship["median_ns"] - no["median_ns"])
+            else:
+                delta = (
+                    f"NA (shipping_detaches={ship_detaches} "
+                    f"no_detach_detaches={no_detaches}; not a detach vs no-detach pair)"
+                )
             prefix = (
-                f"{operation}\t{size}\t{ship['median_ns']}\t{no['median_ns']}\t"
-                f"{ship['median_ns'] - no['median_ns']}"
+                f"{operation}\t{size}\t{source_bytes}\t{ship['median_ns']}\t"
+                f"{no['median_ns']}\t{delta}"
             )
             if size in (1 << 10, 64 << 10):
                 core_one = core_record(core["records"], f"{operation}-one-shot", size)
