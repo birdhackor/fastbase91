@@ -8,7 +8,7 @@ mod decode;
 mod encode;
 mod tables;
 
-pub use decode::{DecodeError, DecodeOptions, Decoder};
+pub use decode::{max_decoded_len, DecodeError, DecodeOptions, Decoder};
 pub use encode::{max_encoded_len, EncodeError, Encoder, OutputTooSmall};
 
 /// Encodes into caller-provided storage.
@@ -20,8 +20,8 @@ pub fn encode_into(input: &[u8], output: &mut [u8]) -> Result<usize, OutputTooSm
 
 /// Decodes from caller-provided storage.
 ///
-/// This is a compile-time scaffold only; the basE91 state machine is planned
-/// for a later milestone and currently emits no bytes.
+/// Decodes according to `options`, writes decoded bytes to `output`, and
+/// includes the final byte produced from any unpaired input symbol.
 pub fn decode_into(
     input: &[u8],
     output: &mut [u8],
@@ -46,7 +46,8 @@ mod tests {
         assert!(encode_into(b"input", &mut output).is_ok());
         assert_eq!(
             decode_into(b"encoded", &mut output, DecodeOptions::new()),
-            Ok(0)
+            Ok(5)
         );
+        assert_eq!(&output[..5], b"\xfb\x8d\xca\x1d\xab");
     }
 }
