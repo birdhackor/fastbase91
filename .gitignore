@@ -1,0 +1,28 @@
+# Rust
+/target
+**/target/
+*.rs.bk
+
+# Python / maturin
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+.venv/
+venv/
+dist/
+build/
+wheelhouse/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# cargo-fuzz
+fuzz/target/
+fuzz/corpus/
+fuzz/artifacts/
+
+# local tooling / editor
+.claude/
+.DS_Store
