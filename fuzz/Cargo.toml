@@ -1,0 +1,22 @@
+[package]
+name = "fastbase91-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+fastbase91-core = { path = "../crates/fastbase91-core", features = ["alloc"], default-features = false }
+
+[[bin]]
+name = "encode"
+path = "fuzz_targets/encode.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
