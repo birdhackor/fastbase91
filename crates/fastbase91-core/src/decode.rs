@@ -51,8 +51,7 @@ impl fmt::Display for DecodeError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for DecodeError {}
+impl core::error::Error for DecodeError {}
 
 /// Stateful decoder placeholder for the first implementation milestone.
 #[derive(Clone, Copy, Debug)]

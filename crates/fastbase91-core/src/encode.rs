@@ -21,8 +21,7 @@ impl fmt::Display for EncodeError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for EncodeError {}
+impl core::error::Error for EncodeError {}
 
 /// Stateful encoder placeholder for the first implementation milestone.
 #[derive(Clone, Copy, Debug, Default)]
@@ -104,5 +103,4 @@ impl fmt::Display for OutputTooSmall {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for OutputTooSmall {}
+impl core::error::Error for OutputTooSmall {}

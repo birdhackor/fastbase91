@@ -1,8 +1,8 @@
 [package]
 name = "fastbase91-python"
 version = "0.1.0"
-edition = "2024"
-rust-version = "1.85"
+edition = "2021"
+rust-version = "1.81"
 license = "MIT OR Apache-2.0"
 description = "PyO3 bindings for fastbase91"
 build = "build.rs"
