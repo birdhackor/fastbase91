@@ -71,9 +71,13 @@ output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+
    並要求三件事全成立：(a) git 有 `fastbase91-core-vV`；(b) HEAD 的
    `crates/fastbase91-core` 子樹與該 tag 無差異；(c) crates.io 已有
    `fastbase91-core` V。缺 tag、子樹不同或有界輪詢後仍不存在皆停止；registry 查詢
-   持續出錯也會 fail-closed。前兩項證明 wheel 內含的 core 來源與已標記版本相同，
-   第三項證明該版本已先發布。直接下載 `.crate` 逐檔比對是不信任本地 tag 的 P11
-   強化項，目前不在 gate 內。
+   持續出錯也會 fail-closed。前兩項把 wheel 內含的 core 綁定到本地 tag
+   `fastbase91-core-vV`，第三項證明該版本已發布——**只要該 tag 未被 force-move，兩者
+   合起來即等於「wheel 內含的 core == crates.io 上已發布的 V」。** 信任邊界是 tag 不被
+   移動：environment 的 selected deployment tag 規則只擋部署、不擋 force-move，必須另設
+   tag ruleset 禁止 `fastbase91-core-v*`／`v*` 的 update／delete 才能鎖死（見 P11 待辦）。
+   完全不信任本地 tag 的最強保證，是下載 crates.io 的 `.crate` 逐檔比對本地 core package；
+   它移除上述 tag 信任假設，列為 P11 強化項、目前不在 gate 內。
 5. `publish-pypi` 以單次、fail-closed 的 `pypi-has` 查詢要求 `fastbase91` 的 Python
    版本尚不存在，並以 Trusted Publishing OIDC 上傳完整 `release-batch/artifacts`；
    不使用 token 或 `skip-existing`。
@@ -127,9 +131,11 @@ core 與 Python 是獨立發布線，不構成跨網站交易：一條線成功�
 ## P11 上線待辦
 
 - 設定 PyPI pending publisher/Trusted Publisher 與 protected `pypi` environment，
-  限制 deployment tag 為 `v*`；確認 trust binding 的 workflow filename 是 `release.yml`。
-- 設定 protected `crates` environment 與最小權限的 `CARGO_REGISTRY_TOKEN`；首發後
-  限制 deployment tag 為 `fastbase91-core-v*`，並依 crates.io OIDC 支援狀態遷移。
+  首發前即限制 deployment tag 為 `v*`；確認 trust binding 的 workflow filename 是 `release.yml`。
+- 設定 protected `crates` environment 與最小權限的 `CARGO_REGISTRY_TOKEN`，首發前即
+  限制 deployment tag 為 `fastbase91-core-v*`；首發後再依 crates.io OIDC 支援狀態遷移。
+- 設定 tag ruleset 禁止 `fastbase91-core-v*` 與 `v*` 的 update／delete，使已發布 tag
+  immutable、core 先發守衛對本地 tag 的信任成立；與下一項的 `.crate` 逐檔比對互補。
 - 設定 `HEALTHCHECKS_PING_URL` secret 與外部 dead-man's-switch 告警。
 - 強化 core 先發守衛：下載 crates.io 的 `.crate`，逐檔比對本地 core package，避免只信任
   git tag 與 registry 版本存在性。
