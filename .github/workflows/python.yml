@@ -20,4 +20,4 @@ jobs:
       - run: maturin build --release --out dist
         working-directory: bindings/python
       - run: python -m pip install --force-reinstall bindings/python/dist/*.whl
-      - run: python -c "import fastbase91; assert fastbase91.encode(b'input') == b''; print('python import: ok')"
+      - run: python -c "import fastbase91; assert fastbase91.encode(b'input') == b'xojg][A'; print('python import: ok')"
