@@ -36,15 +36,16 @@ fn run(operation: &str, input: &[u8]) -> Vec<u8> {
         .stderr(Stdio::piped())
         .spawn()
         .expect("start C reference oracle");
-    child
-        .stdin
-        .take()
-        .expect("oracle stdin")
-        .write_all(input)
-        .expect("write bytes to C reference oracle");
+    let mut stdin = child.stdin.take().expect("oracle stdin");
+    let input = input.to_vec();
+    let writer = std::thread::spawn(move || stdin.write_all(&input));
     let result = child
         .wait_with_output()
         .expect("wait for C reference oracle");
+    writer
+        .join()
+        .expect("C reference oracle stdin writer panicked")
+        .expect("write bytes to C reference oracle");
     assert!(
         result.status.success(),
         "C reference oracle failed: {}",

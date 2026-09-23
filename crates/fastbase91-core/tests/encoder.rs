@@ -47,6 +47,24 @@ fn hello_matches_named_vector_and_c_reference() {
 }
 
 #[test]
+fn strict_comparison_boundary_vectors_match_c_reference() {
+    const VECTORS: &[(&str, &[u8], &[u8])] = &[
+        ("value == 87", b"\x57\x00\x01", b"|AEA"),
+        ("value == 88", b"\x58\x00\x01", b"}AEA"),
+        ("value == 89", b"\x59\x00\x01", b"~AIA"),
+        ("queue == 89", b"\x00\x00\x00\x00\x00\xb3", b"AAAABt~"),
+        ("queue == 90", b"\x00\x00\x00\x00\x00\xb5", b"AAAABt\""),
+        ("queue == 91", b"\x00\x00\x00\x00\x00\xb7", b"AAAABtAB"),
+    ];
+
+    for &(name, input, expected) in VECTORS {
+        let c_encoded = reference::encode(input);
+        assert_eq!(c_encoded, expected, "C oracle changed for {name}");
+        assert_eq!(rust_encode(input), c_encoded, "Rust mismatch for {name}");
+    }
+}
+
+#[test]
 fn differential_257_lengths_times_four_contents() {
     let mut cases = 0;
     for length in 0..=256 {
@@ -124,11 +142,20 @@ fn bound_covers_nonempty_states_update_and_finish() {
                 .update(&data[..prefix_len], &mut prefix_output)
                 .unwrap();
 
+            let chunk = &data[64..64 + chunk_len];
+            let mut measuring = encoder;
+            let required = match measuring.update(chunk, &mut []) {
+                Ok(written) => {
+                    assert_eq!(written, 0);
+                    0
+                }
+                Err(error) => error.required(),
+            };
+            let mut claimed_capacity = vec![0; required];
+            let written = encoder.update(chunk, &mut claimed_capacity).unwrap();
+            assert!(written <= required);
+
             let bound = max_encoded_len(chunk_len).unwrap();
-            let mut chunk_output = vec![0; bound];
-            let written = encoder
-                .update(&data[64..64 + chunk_len], &mut chunk_output)
-                .unwrap();
             let (_, tail_len) = encoder.finish();
             assert!(written + tail_len <= bound);
         }
@@ -144,9 +171,8 @@ fn output_too_small_is_transactional_and_retryable() {
     let prefix_written = encoder.update(prefix, &mut prefix_output).unwrap();
 
     let before = encoder;
-    let mut probe = [0_u8; 32];
     let mut measuring = before;
-    let required = measuring.update(chunk, &mut probe).unwrap();
+    let required = measuring.update(chunk, &mut []).unwrap_err().required();
     assert!(required > 0);
 
     let mut too_small = vec![0xa5; required - 1];
@@ -157,32 +183,68 @@ fn output_too_small_is_transactional_and_retryable() {
     assert_eq!(too_small, untouched);
 
     let mut retry = vec![0; required];
-    assert_eq!(encoder.update(chunk, &mut retry), Ok(required));
+    let chunk_written = encoder.update(chunk, &mut retry).unwrap();
+    assert!(chunk_written <= required);
     let after_chunk = encoder;
     assert_eq!(encoder.update(b"", &mut []), Ok(0));
     assert_eq!(encoder, after_chunk);
 
     let (tail, tail_len) = encoder.finish();
     let mut encoded = prefix_output[..prefix_written].to_vec();
-    encoded.extend_from_slice(&retry);
+    encoded.extend_from_slice(&retry[..chunk_written]);
     encoded.extend_from_slice(&tail[..tail_len]);
     assert_eq!(encoded, reference::encode(b"abcdefghijk"));
 }
 
 #[test]
-fn encode_into_exact_capacity_and_one_less_contract() {
-    let expected = reference::encode(b"hello");
-    let mut exact = vec![0; expected.len()];
-    assert_eq!(encode_into(b"hello", &mut exact), Ok(expected.len()));
-    assert_eq!(exact, expected);
+fn update_capacity_success_is_content_independent() {
+    let inputs = [[0_u8; 5], [0xff_u8; 5]];
 
-    let mut too_small = vec![0x5a; expected.len() - 1];
+    for input in inputs {
+        let mut encoder = Encoder::new();
+        let mut too_small = [0xa5_u8; 5];
+        let untouched = too_small;
+        let error = encoder.update(&input, &mut too_small).unwrap_err();
+        assert_eq!(error.required(), 6);
+        assert_eq!(encoder, Encoder::new());
+        assert_eq!(too_small, untouched);
+
+        let mut sufficient = [0_u8; 6];
+        let written = encoder.update(&input, &mut sufficient).unwrap();
+        assert!(written <= 6);
+    }
+}
+
+#[test]
+fn encode_into_upper_bound_capacity_and_one_less_contract() {
+    let expected = reference::encode(b"hello");
+    let required = 2 * ((8 * b"hello".len()) / 13) + 2;
+    let mut sufficient = vec![0; required];
+    let written = encode_into(b"hello", &mut sufficient).unwrap();
+    assert_eq!(written, expected.len());
+    assert_eq!(&sufficient[..written], expected);
+
+    let mut too_small = vec![0x5a; required - 1];
     let untouched = too_small.clone();
     let error = encode_into(b"hello", &mut too_small).unwrap_err();
-    assert_eq!(error.required(), expected.len());
+    assert_eq!(error.required(), required);
     assert_eq!(too_small, untouched);
 
     assert_eq!(encode_into(b"", &mut []), Ok(0));
+}
+
+#[test]
+fn c_reference_large_encode_and_decode_do_not_deadlock() {
+    let input = vec![0_u8; 1024 * 1024];
+    let rust_encoded = rust_encode(&input);
+    let c_encoded = reference::encode(&input);
+    assert_eq!(c_encoded, rust_encoded);
+    assert_eq!(reference::decode(&c_encoded), input);
+    eprintln!(
+        "C oracle 1 MiB round trip: {} input bytes, {} encoded bytes",
+        input.len(),
+        c_encoded.len()
+    );
 }
 
 #[test]

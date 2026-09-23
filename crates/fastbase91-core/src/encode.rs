@@ -66,9 +66,10 @@ impl Encoder {
     /// Encodes a chunk into caller-provided storage.
     ///
     /// If the output is too small, neither the encoder state nor the output
-    /// slice is changed. An empty chunk always succeeds and writes no bytes.
+    /// slice is changed. Capacity is checked using a content-independent upper
+    /// bound derived from the current bit count and the input length.
     pub fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, OutputTooSmall> {
-        let (next, required) = self.preflight(input);
+        let required = self.update_capacity(input.len());
         if output.len() < required {
             return Err(OutputTooSmall::new(required));
         }
@@ -82,7 +83,7 @@ impl Encoder {
                 written += 2;
             }
         }
-        *self = next;
+        *self = working;
         Ok(written)
     }
 
@@ -122,15 +123,14 @@ impl Encoder {
         Some(value as usize)
     }
 
-    fn preflight(&self, input: &[u8]) -> (Self, usize) {
-        let mut next = *self;
-        let mut required = 0_usize;
-        for &byte in input {
-            if next.push(byte).is_some() {
-                required = required.saturating_add(2);
-            }
-        }
-        (next, required)
+    fn update_capacity(&self, input_len: usize) -> usize {
+        // This is 2 * floor((nbits + 8 * input_len) / 13), split at
+        // 13-byte boundaries so that 8 * input_len is never formed.
+        let quotient = input_len / 13;
+        let remainder = input_len % 13;
+        let prefix = quotient.saturating_mul(16);
+        let remaining_bits = usize::from(self.nbits) + remainder * 8;
+        prefix.saturating_add((remaining_bits / 13) * 2)
     }
 
     pub(crate) fn encode_into(
@@ -138,9 +138,14 @@ impl Encoder {
         input: &[u8],
         output: &mut [u8],
     ) -> Result<usize, OutputTooSmall> {
-        let (after_update, update_len) = self.preflight(input);
-        let (_, tail_len) = after_update.finish();
-        let required = update_len.saturating_add(tail_len);
+        let tail_capacity = if self.nbits == 0 && input.is_empty() {
+            0
+        } else {
+            2
+        };
+        let required = self
+            .update_capacity(input.len())
+            .saturating_add(tail_capacity);
         if output.len() < required {
             return Err(OutputTooSmall::new(required));
         }
@@ -184,7 +189,7 @@ impl OutputTooSmall {
         Self { required }
     }
 
-    /// Returns the exact capacity required by the attempted operation.
+    /// Returns the capacity required by the attempted operation.
     pub const fn required(self) -> usize {
         self.required
     }
@@ -205,6 +210,18 @@ impl core::error::Error for OutputTooSmall {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn update_capacity_matches_wide_formula_and_saturates() {
+        for nbits in [0, 7, 13] {
+            let encoder = Encoder { queue: 0, nbits };
+            for input_len in [0, 1, 12, 13, 14, usize::MAX] {
+                let wide = 2 * ((u128::from(nbits) + 8 * input_len as u128) / 13);
+                let expected = usize::try_from(wide).unwrap_or(usize::MAX);
+                assert_eq!(encoder.update_capacity(input_len), expected);
+            }
+        }
+    }
 
     #[test]
     fn allocation_limit_is_distinct_from_math_overflow() {
