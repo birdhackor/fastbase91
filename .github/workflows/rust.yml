@@ -31,3 +31,26 @@ jobs:
       - uses: dtolnay/rust-toolchain@9a1e4aa8b738983d2a36f2f839626fe8fdaf1355 # 1.81.0
       - run: cargo test -p fastbase91-core --no-default-features
       - run: cargo test -p fastbase91-core --no-default-features --features alloc
+
+  rust-ci:
+    name: rust-ci
+    # Stable aggregate status check for branch protection, mirroring python-ci.
+    needs:
+      - stable
+      - core-msrv
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every required job succeeded
+        shell: bash
+        run: |
+          set -euo pipefail
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "upstream results: $results"
+          for result in $results; do
+            if [[ "$result" != "success" ]]; then
+              echo "a required upstream job concluded '$result'" >&2
+              exit 1
+            fi
+          done
+          echo "all required upstream jobs succeeded"

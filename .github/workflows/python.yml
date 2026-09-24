@@ -33,24 +33,24 @@ jobs:
       matrix: ${{ fromJSON(needs.wheel-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
-        if: matrix.python_provider == 'setup-python'
-        with:
-          python-version: ${{ matrix.build_python_version }}
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         if: matrix.python_provider == 'uv'
         with:
           version: "0.12.17"
           enable-cache: false
       - id: uv_python
-        name: Install the uv-managed free-threaded build interpreter
+        name: Install the uv-managed build interpreter
         if: matrix.python_provider == 'uv'
         shell: bash
         run: |
           set -euo pipefail
           uv python install "${{ matrix.build_python_version }}"
           python_path="$(uv python find --no-project "${{ matrix.build_python_version }}")"
-          "$python_path" -c 'import sys; assert not sys._is_gil_enabled(); print(sys.version)'
+          if [[ "${{ matrix.free_threaded }}" == "true" ]]; then
+            "$python_path" -c 'import sys; assert not sys._is_gil_enabled(); print(sys.version)'
+          else
+            "$python_path" -c 'import sys; print(sys.version)'
+          fi
           echo "path=$python_path" >> "$GITHUB_OUTPUT"
       - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -173,18 +173,22 @@ jobs:
       matrix: ${{ fromJSON(needs.wheel-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      # Regular released interpreters come from setup-python; free-threaded
+      # ones (including the 3.15 RC) are only reliably available via uv, so the
+      # test interpreter is chosen by free_threaded, independent of how the
+      # wheel was built.
       - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
-        if: matrix.python_provider != 'uv'
+        if: ${{ !matrix.free_threaded }}
         with:
           python-version: ${{ matrix.test_python_version }}
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        if: matrix.python_provider == 'uv'
+        if: matrix.free_threaded
         with:
           version: "0.12.17"
           enable-cache: false
       - id: uv_test_python
         name: Create an isolated uv-managed free-threaded test environment
-        if: matrix.python_provider == 'uv'
+        if: matrix.free_threaded
         shell: bash
         run: |
           set -euo pipefail
@@ -205,21 +209,21 @@ jobs:
       - name: Install the built wheel and test dependencies
         shell: bash
         env:
-          TEST_PYTHON: ${{ matrix.python_provider == 'uv' && steps.uv_test_python.outputs.path || 'python' }}
+          TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
         run: |
           "$TEST_PYTHON" -m pip install --upgrade pip pytest
           "$TEST_PYTHON" -m pip install --force-reinstall wheel/*.whl
       - name: Import smoke test
         shell: bash
         env:
-          TEST_PYTHON: ${{ matrix.python_provider == 'uv' && steps.uv_test_python.outputs.path || 'python' }}
+          TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
         run: |
           "$TEST_PYTHON" -c "import fastbase91; assert fastbase91.encode(b'input') == b'xojg][A'; print('python import: ok')"
       - name: Free-threaded build gate
         if: matrix.free_threaded
         shell: bash
         env:
-          TEST_PYTHON: ${{ matrix.python_provider == 'uv' && steps.uv_test_python.outputs.path || 'python' }}
+          TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
         run: |
           "$TEST_PYTHON" - <<'PY'
           from concurrent.futures import ThreadPoolExecutor
@@ -249,7 +253,7 @@ jobs:
       - name: Run binding tests
         shell: bash
         env:
-          TEST_PYTHON: ${{ matrix.python_provider == 'uv' && steps.uv_test_python.outputs.path || 'python' }}
+          TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
         run: '"$TEST_PYTHON" -m pytest bindings/python/tests -q'
 
   license-copies:
@@ -322,3 +326,36 @@ jobs:
           name: release-batch
           path: release-batch
           if-no-files-found: error
+
+  python-ci:
+    name: python-ci
+    # Stable aggregate status check for branch protection. The matrix job names
+    # (${{ matrix.id }}, test ${{ matrix.id }} …) change whenever the wheel
+    # matrix changes, so required checks target this fixed name instead of the
+    # individual matrix legs. Fails if any upstream job did not succeed.
+    needs:
+      - wheel-matrix
+      - build-wheels
+      - build-sdist
+      - sdist-build-test
+      - manifest
+      - test-wheels
+      - license-copies
+      - link-python-input-test
+      - verify-batch
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every required job succeeded
+        shell: bash
+        run: |
+          set -euo pipefail
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "upstream results: $results"
+          for result in $results; do
+            if [[ "$result" != "success" ]]; then
+              echo "a required upstream job concluded '$result'" >&2
+              exit 1
+            fi
+          done
+          echo "all required upstream jobs succeeded"

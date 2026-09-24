@@ -42,7 +42,7 @@
     {
       "id": "abi3-py311-windows",
       "os": "windows-latest",
-      "python_provider": "setup-python",
+      "python_provider": "uv",
       "interpreter": "python",
       "build_python_version": "3.11",
       "manylinux": "off",
@@ -55,7 +55,7 @@
     {
       "id": "cp314-cp314t-windows",
       "os": "windows-latest",
-      "python_provider": "setup-python",
+      "python_provider": "uv",
       "interpreter": "python",
       "build_python_version": "3.14t",
       "manylinux": "off",
@@ -81,7 +81,7 @@
     {
       "id": "abi3-py311-macos",
       "os": "macos-latest",
-      "python_provider": "setup-python",
+      "python_provider": "uv",
       "interpreter": "python",
       "build_python_version": "3.11",
       "manylinux": "off",
@@ -94,7 +94,7 @@
     {
       "id": "cp314-cp314t-macos",
       "os": "macos-latest",
-      "python_provider": "setup-python",
+      "python_provider": "uv",
       "interpreter": "python",
       "build_python_version": "3.14t",
       "manylinux": "off",
