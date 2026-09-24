@@ -23,6 +23,21 @@
       "groupName": "GitHub Actions pins"
     },
     {
+      "description": "Low-risk auto-merge: non-major, SHA-pinned GitHub Actions updates merge automatically once the required CI checks pass; majors still need human review",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
       "description": "Keep Rust and Python dependency changes together for CI review",
       "matchManagers": [
         "cargo",
