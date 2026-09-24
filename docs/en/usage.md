@@ -53,7 +53,7 @@ except fastbase91.DecodeError as error:
     assert error.byte == 0x0A
 ```
 
-Use `strict=True` for untrusted input, or for a protocol where extra bytes indicate invalid data. Strict mode only checks whether each byte is in the alphabet: truncated or altered data can decode to different bytes without an error. basE91 is an encoding, not encryption, and provides no integrity protection; add a checksum, MAC, or signature at the application layer when corruption or tampering must be detected.
+Use `strict=True` for untrusted input, or for a protocol where extra bytes indicate invalid data. Strict mode only checks whether each byte is in the alphabet: truncated or altered data can decode to different bytes without an error. basE91 is an encoding, not encryption, and provides no integrity protection. To detect accidental corruption, add a checksum at the application layer; to detect deliberate tampering, use a MAC or a digital signature, because anyone who can change the data can also recompute a plain checksum.
 
 ### Streaming
 
