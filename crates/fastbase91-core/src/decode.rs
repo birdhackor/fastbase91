@@ -175,7 +175,11 @@ impl Decoder {
         }
         self.queue = queue;
         self.nbits = nbits as u8;
-        self.pending = if val == u32::MAX { None } else { Some(val as u8) };
+        self.pending = if val == u32::MAX {
+            None
+        } else {
+            Some(val as u8)
+        };
         written
     }
 
