@@ -23,7 +23,8 @@
       "groupName": "GitHub Actions pins"
     },
     {
-      "description": "Low-risk auto-merge: non-major updates to CI infrastructure Actions that PR CI fully exercises. Fail-closed allowlist; build tools (maturin-action, setup-uv, rust-toolchain) and the PyPI publish Action are excluded per the project brief, since differential tests miss wheel-tag/packaging/min-OS changes and the publish Action never runs in PR CI.",
+      "description": "Low-risk auto-merge: non-major updates to CI infrastructure Actions that PR CI fully exercises. Fail-closed allowlist; build tools (maturin-action, setup-uv, rust-toolchain) and the PyPI publish Action are excluded per the project brief, since differential tests miss wheel-tag/packaging/min-OS changes and the publish Action never runs in PR CI. Grouped on its own so this batch can auto-merge -- a mixed group containing any manual-only member would never auto-merge.",
+      "groupName": "CI infrastructure Actions",
       "matchManagers": [
         "github-actions"
       ],
