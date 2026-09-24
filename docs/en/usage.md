@@ -82,7 +82,7 @@ with Path("encoded.b91").open("rb") as source, Path("decoded.bin").open("wb") as
 
 Chunk boundaries do not change the result: concatenating streaming output gives the same bytes as one-shot `encode()` or `decode()`. `finish()` emits remaining bits that have not formed a complete group and marks the end of that message. After `finish()`, another `update()` or `finish()` on that object raises `ValueError`; use one `Encoder` or `Decoder` for each message.
 
-Independently encoded messages must not be concatenated and decoded as one message: the result contains incorrect bytes. Store and decode each message separately; when a shared container is needed, define and parse a delimiter or length before decoding.
+Independently encoded messages must not be concatenated and decoded as one message: the result can contain incorrect bytes. Store and decode each message separately; when a shared container is needed, define and parse a delimiter or length before decoding.
 
 ### Handling decode errors
 
