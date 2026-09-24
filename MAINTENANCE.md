@@ -69,11 +69,18 @@ output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+
 
 ### Python 發布與 core 先發不變式
 
-1. 只提升 `bindings/python/Cargo.toml` 的版本。`bindings/python/pyproject.toml` 保持
+1. 提升 `bindings/python/Cargo.toml` 的版本，並執行 `cargo update -p fastbase91-python`
+   同步 `Cargo.lock`。CI 的 wheel 建置以 `maturin build --locked` 進行（本機可先用
+   `cargo metadata --locked` 預檢），`Cargo.lock` 未同步會直接失敗；升版 commit 必須同時
+   包含這兩個檔。`bindings/python/pyproject.toml` 保持
    `dynamic = ["version"]`，Python 套件版本來自 binding Cargo metadata。
 2. 若 core 沒有改，只建立並推送 `vA.B.C`。若 core 有改，先依上一節推送 core tag、
    等 crates.io 落地，再推送 Python tag。共同發布時兩個 tag 指向同一 commit，而且
    **先推 core tag**；可以緊接著推 Python tag，wheel 守衛會有界輪詢等待 crates.io。
+   release tag 不可移動、版本不可覆寫，所以**務必先把升版 commit 推上 main、等該 commit 的
+   `python-ci` 與 `rust-ci` 綠，再對同一 commit 打輕量 tag 並推送**；其中 `python-ci` 的
+   wheel 建置以 `maturin build --locked` 進行，等於發布前的 lock 同步預檢（`rust-ci` 不帶
+   `--locked`）。tag 一旦推出即綁定該內容，內容有誤只能跳下一個版號。
 3. Python 線呼叫 `python.yml` 的 `workflow_call`，建置 9 組 wheels 與 sdist、產生
    manifest、做安裝與 sdist 重建測試，並組成 immutable `release-batch`。頂層 job
    再重驗 filename、SHA-256、source commit 與 Python tag 版本。
