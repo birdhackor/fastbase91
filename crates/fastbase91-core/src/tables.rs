@@ -13,6 +13,20 @@ const fn decode_table() -> [u8; 256] {
 
 pub(crate) const DECODE_TABLE: [u8; 256] = decode_table();
 
+const fn decode_table_ff() -> [u8; 256] {
+    let mut table = [0xFF; 256];
+    let mut index = 0;
+    while index < ALPHABET.len() {
+        table[ALPHABET[index] as usize] = index as u8;
+        index += 1;
+    }
+    table
+}
+
+/// Same mapping as `DECODE_TABLE`, but the non-alphabet sentinel is `0xFF`, so
+/// eight lookups can be validated with one OR-reduction and a bit test.
+pub(crate) static DECODE_FF: [u8; 256] = decode_table_ff();
+
 const fn encode_pairs() -> [[u8; 2]; 8281] {
     let mut table = [[0; 2]; 8281];
     let mut value = 0;

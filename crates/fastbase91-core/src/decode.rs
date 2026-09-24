@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::tables::DECODE_TABLE;
+use crate::tables::{DECODE_FF, DECODE_TABLE};
 use crate::OutputTooSmall;
 
 /// Decoder policy options.
@@ -148,29 +148,97 @@ impl Decoder {
             None => u32::MAX,
         };
         let mut written = 0;
-        for &byte in input {
-            let d = u32::from(DECODE_TABLE[usize::from(byte)]);
-            if d == 91 {
-                continue;
-            }
-            if val == u32::MAX {
-                val = d;
+
+        let emit_pair = |low: u32, high: u32, queue: &mut u32, nbits: &mut u32, out: &mut [u8]| {
+            let combined = low + high * 91;
+            *queue |= combined << *nbits;
+            *nbits += if combined & 8191 > 88 { 13 } else { 14 };
+            out[0] = *queue as u8;
+            *queue >>= 8;
+            *nbits -= 8;
+            if *nbits >= 8 {
+                out[1] = *queue as u8;
+                *queue >>= 8;
+                *nbits -= 8;
+                2
             } else {
-                let combined = val + d * 91;
-                val = u32::MAX;
-                queue |= combined << nbits;
-                nbits += if combined & 8191 > 88 { 13 } else { 14 };
-                // pair adds 13-14 bits => nbits >= 13: 1 output byte, maybe a 2nd.
-                output[written] = queue as u8;
-                written += 1;
-                queue >>= 8;
-                nbits -= 8;
-                if nbits >= 8 {
-                    output[written] = queue as u8;
-                    written += 1;
-                    queue >>= 8;
-                    nbits -= 8;
+                1
+            }
+        };
+
+        let len = input.len();
+        let mut i = 0;
+        while i < len {
+            // Block fast path (only when no symbol is pending): eight alphabet
+            // bytes decode to four pairs written into one 8-byte output window.
+            // DECODE_FF's 0xFF sentinel sets bit 7, so one OR-reduction plus a
+            // `& 0x80` test rejects any non-alphabet byte in the block; a reject,
+            // or fewer than 8 bytes of input/output headroom, falls through to the
+            // scalar step below (which is then retried on the next iteration).
+            if val == u32::MAX {
+                while i + 8 <= len && written + 8 <= output.len() {
+                    let block = &input[i..i + 8];
+                    let d0 = DECODE_FF[usize::from(block[0])];
+                    let d1 = DECODE_FF[usize::from(block[1])];
+                    let d2 = DECODE_FF[usize::from(block[2])];
+                    let d3 = DECODE_FF[usize::from(block[3])];
+                    let d4 = DECODE_FF[usize::from(block[4])];
+                    let d5 = DECODE_FF[usize::from(block[5])];
+                    let d6 = DECODE_FF[usize::from(block[6])];
+                    let d7 = DECODE_FF[usize::from(block[7])];
+                    if (d0 | d1 | d2 | d3 | d4 | d5 | d6 | d7) & 0x80 != 0 {
+                        break;
+                    }
+
+                    let out = &mut output[written..written + 8];
+                    let mut w = 0;
+                    w += emit_pair(
+                        u32::from(d0),
+                        u32::from(d1),
+                        &mut queue,
+                        &mut nbits,
+                        &mut out[w..],
+                    );
+                    w += emit_pair(
+                        u32::from(d2),
+                        u32::from(d3),
+                        &mut queue,
+                        &mut nbits,
+                        &mut out[w..],
+                    );
+                    w += emit_pair(
+                        u32::from(d4),
+                        u32::from(d5),
+                        &mut queue,
+                        &mut nbits,
+                        &mut out[w..],
+                    );
+                    w += emit_pair(
+                        u32::from(d6),
+                        u32::from(d7),
+                        &mut queue,
+                        &mut nbits,
+                        &mut out[w..],
+                    );
+                    written += w;
+                    i += 8;
                 }
+            }
+
+            let stop = if i + 8 < len { i + 8 } else { len };
+            while i < stop {
+                let d = DECODE_FF[usize::from(input[i])];
+                i += 1;
+                if d == 0xFF {
+                    continue;
+                }
+                let d = u32::from(d);
+                if val == u32::MAX {
+                    val = d;
+                    continue;
+                }
+                written += emit_pair(val, d, &mut queue, &mut nbits, &mut output[written..]);
+                val = u32::MAX;
             }
         }
         self.queue = queue;
