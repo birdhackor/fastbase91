@@ -8,6 +8,7 @@ site_dir = "site/en"
 nav = [
   { "Overview" = "index.md" },
   { "Usage" = "usage.md" },
+  { "Installation & compatibility" = "installation.md" },
   { "Free-threading" = "free-threading.md" },
   { "Benchmarks" = "benchmarks.md" },
   { "Changelog" = "changelog.md" },

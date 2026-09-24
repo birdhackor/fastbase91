@@ -32,8 +32,8 @@ fastbase91 實作的是標準 [basE91](https://base91.sourceforge.net/)。它的
 ## 它為什麼而生
 
 - **並行處理。** 一次大型呼叫會把工作交給 Rust，並放掉 Python 的全域鎖（GIL），於是多個呼叫可以在多條執行緒上同時進行，而不是輪流排隊。見[效能測試](benchmarks.md)。
-- **自由執行緒 Python。** 這個擴充被標記為在 no-GIL 版本下安全，所以匯入它不會偷偷把 GIL 又打開。[為什麼這很重要](free-threading.md)。
-- **可攜性。** Python wheel 涵蓋 Windows、macOS 與 Linux；Rust core 不需要 `std`、甚至不需要記憶體配置器（allocator）也能跑。
+- **自由執行緒 Python。** 這個擴充被標記為在 no-GIL 版本下安全，所以匯入它不會把 GIL 又打開。[為什麼這很重要](free-threading.md)。
+- **可攜性。** 預先建好的 Python wheel 涵蓋 Linux（x86_64）、macOS（Apple silicon）與 Windows（x86_64），其他 CPython 平台可以用 Rust 工具鏈從原始碼建置（見[安裝與相容性](installation.md)）；Rust core 不需要 `std`、甚至不需要記憶體配置器（allocator）也能跑。
 - **安全性。** Rust core 是 `#![forbid(unsafe_code)]`——編譯器直接拒絕任何 unsafe 區塊。
 - **控制力。** 兩種 API 都能串流（分段編解碼），而且解碼時可以拒絕 basE91 字母表以外的位元組，而不是默默略過。
 
