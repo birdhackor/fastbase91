@@ -8,11 +8,26 @@
     "cargo",
     "github-actions",
     "pep621",
-    "pip_requirements"
+    "pip_requirements",
+    "custom.regex"
   ],
   "timezone": "Asia/Taipei",
   "schedule": [
     "* 0-5 * * 0"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the maturin build tool version pinned inline in CI (pip install maturin==X.Y.Z); the built-in managers do not see this shell string, so without this it can silently drift from the maturin-action version",
+      "managerFilePatterns": [
+        ".github/workflows/*.yml"
+      ],
+      "matchStrings": [
+        "maturin==(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "maturin",
+      "datasourceTemplate": "pypi"
+    }
   ],
   "packageRules": [
     {
@@ -52,6 +67,13 @@
         "pip_requirements"
       ],
       "groupName": "Rust and Python dependencies"
+    },
+    {
+      "description": "Keep every pinned maturin reference (maturin-action version and the inline pip pin) moving together as one build-tool change; human review",
+      "matchDepNames": [
+        "maturin"
+      ],
+      "groupName": "maturin toolchain"
     },
     {
       "description": "PyO3 pre-1.0 updates always require human review",
