@@ -87,16 +87,34 @@ impl Encoder {
             return Err(OutputTooSmall::new(required));
         }
 
-        let mut working = self.clone();
+        let mut queue = self.queue;
+        let mut nbits = self.nbits;
         let mut written = 0;
         for &byte in input {
-            if let Some(value) = working.push(byte) {
+            queue |= u32::from(byte) << nbits;
+            nbits += 8;
+            if nbits <= 13 {
+                continue;
+            }
+            let low13 = queue & 8191;
+            if low13 > 88 {
+                let value = low13 as usize;
+                queue >>= 13;
+                nbits -= 13;
+                output[written] = ALPHABET[value % 91];
+                output[written + 1] = ALPHABET[value / 91];
+                written += 2;
+            } else {
+                let value = (queue & 16383) as usize;
+                queue >>= 14;
+                nbits -= 14;
                 output[written] = ALPHABET[value % 91];
                 output[written + 1] = ALPHABET[value / 91];
                 written += 2;
             }
         }
-        *self = working;
+        self.queue = queue;
+        self.nbits = nbits;
         Ok(written)
     }
 
@@ -115,25 +133,6 @@ impl Encoder {
         } else {
             (tail, 1)
         }
-    }
-
-    fn push(&mut self, byte: u8) -> Option<usize> {
-        self.queue |= u32::from(byte) << self.nbits;
-        self.nbits += 8;
-        if self.nbits <= 13 {
-            return None;
-        }
-
-        let mut value = self.queue & 8191;
-        let consumed = if value > 88 {
-            13
-        } else {
-            value = self.queue & 16383;
-            14
-        };
-        self.queue >>= consumed;
-        self.nbits -= consumed;
-        Some(value as usize)
     }
 
     fn update_capacity(&self, input_len: usize) -> usize {
