@@ -130,15 +130,65 @@ impl Decoder {
             return Err(DecodeError::OutputTooSmall(OutputTooSmall::new(required)));
         }
 
+        if self.options.reject_non_alphabet {
+            self.update_strict(input, output)
+        } else {
+            Ok(self.update_lenient(input, output))
+        }
+    }
+
+    // Fast path: lenient never needs the byte offset, so drop the enumerate/early-exit
+    // that constrains the loop. u32 sentinel (u32::MAX = no pending) + u32 nbits in
+    // locals; the Decoder struct stays Option<u8>/u8 (O(1) convert in/out per call).
+    fn update_lenient(&mut self, input: &[u8], output: &mut [u8]) -> usize {
+        let mut queue = self.queue;
+        let mut nbits = u32::from(self.nbits);
+        let mut val = match self.pending {
+            Some(v) => u32::from(v),
+            None => u32::MAX,
+        };
+        let mut written = 0;
+        for &byte in input {
+            let d = u32::from(DECODE_TABLE[usize::from(byte)]);
+            if d == 91 {
+                continue;
+            }
+            if val == u32::MAX {
+                val = d;
+            } else {
+                let combined = val + d * 91;
+                val = u32::MAX;
+                queue |= combined << nbits;
+                nbits += if combined & 8191 > 88 { 13 } else { 14 };
+                // pair adds 13-14 bits => nbits >= 13: 1 output byte, maybe a 2nd.
+                output[written] = queue as u8;
+                written += 1;
+                queue >>= 8;
+                nbits -= 8;
+                if nbits >= 8 {
+                    output[written] = queue as u8;
+                    written += 1;
+                    queue >>= 8;
+                    nbits -= 8;
+                }
+            }
+        }
+        self.queue = queue;
+        self.nbits = nbits as u8;
+        self.pending = if val == u32::MAX { None } else { Some(val as u8) };
+        written
+    }
+
+    // Strict path: identical behaviour to the old strict branch (offset + InvalidByte
+    // + transactional state). Since reject_non_alphabet is known true here, any
+    // non-alphabet byte errors (the old `continue` was unreachable in strict mode).
+    fn update_strict(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
         let mut working = self.clone();
         let mut written = 0;
         for (offset, &byte) in input.iter().enumerate() {
             let value = DECODE_TABLE[usize::from(byte)];
             if value == 91 {
-                if self.options.reject_non_alphabet {
-                    return Err(DecodeError::InvalidByte { byte, offset });
-                }
-                continue;
+                return Err(DecodeError::InvalidByte { byte, offset });
             }
             if let Some(first) = working.pending.take() {
                 let combined = u32::from(first) + u32::from(value) * 91;
