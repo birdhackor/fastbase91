@@ -1,7 +1,5 @@
 # Usage
 
-[正體中文](../zh/usage.md)
-
 ## Python
 
 Install the extension from PyPI:
@@ -110,7 +108,7 @@ Disable default features when the target has neither `std` nor an allocator:
 
 ```toml
 [dependencies]
-fastbase91-core = { version = "0.1.0", default-features = false }
+fastbase91-core = { version = "0.1.1", default-features = false }
 ```
 
 Use caller-provided buffers with `encode_into` and `decode_into`:
@@ -137,7 +135,7 @@ assert_eq!(&decoded[..decoded_len], b"hello");
 To use the allocating APIs in a `no_std` environment that does provide an allocator, enable only `alloc`:
 
 ```toml
-fastbase91-core = { version = "0.1.0", default-features = false, features = ["alloc"] }
+fastbase91-core = { version = "0.1.1", default-features = false, features = ["alloc"] }
 ```
 
 ### Streaming core API

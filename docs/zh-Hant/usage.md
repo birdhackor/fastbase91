@@ -1,7 +1,5 @@
 # 使用方式
 
-[English](../en/usage.md)
-
 ## Python
 
 從 PyPI 安裝擴充套件：
@@ -110,7 +108,7 @@ options.reject_non_alphabet = true;
 
 ```toml
 [dependencies]
-fastbase91-core = { version = "0.1.0", default-features = false }
+fastbase91-core = { version = "0.1.1", default-features = false }
 ```
 
 透過 `encode_into` 與 `decode_into` 使用呼叫端提供的 buffer：
@@ -137,7 +135,7 @@ assert_eq!(&decoded[..decoded_len], b"hello");
 若 `no_std` 環境有 allocator 並需要會配置記憶體的 API，可只啟用 `alloc`：
 
 ```toml
-fastbase91-core = { version = "0.1.0", default-features = false, features = ["alloc"] }
+fastbase91-core = { version = "0.1.1", default-features = false, features = ["alloc"] }
 ```
 
 ### Core 串流 API

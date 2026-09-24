@@ -1,0 +1,50 @@
+[project]
+site_name = "fastbase91"
+site_url = "https://birdhackor.github.io/fastbase91/zh-Hant/"
+repo_url = "https://github.com/birdhackor/fastbase91"
+repo_name = "birdhackor/fastbase91"
+docs_dir = "docs/zh-Hant"
+site_dir = "site/zh-Hant"
+nav = [
+  { "總覽" = "index.md" },
+  { "使用方式" = "usage.md" },
+  { "自由執行緒" = "free-threading.md" },
+  { "方案比較" = "comparison.md" },
+  { "效能測試" = "benchmarks.md" },
+]
+
+[project.theme]
+language = "zh-Hant"
+features = [
+  "navigation.sections",
+  "navigation.top",
+  "content.code.copy",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "material/brightness-7"
+toggle.name = "切換到深色模式"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "material/brightness-4"
+toggle.name = "切換到淺色模式"
+
+[project.extra]
+alternate = [
+  { name = "English", link = "/fastbase91/en/", lang = "en" },
+  { name = "繁體中文", link = "/fastbase91/zh-Hant/", lang = "zh-Hant" },
+]
+
+[project.markdown_extensions]
+admonition = {}
+pymdownx.superfences = {}
+pymdownx.highlight = { anchor_linenums = true }
