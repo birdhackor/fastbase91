@@ -6,6 +6,10 @@ basE91 is a way to pack binary data into 91 printable ASCII characters. The enco
 
 ## Quick start
 
+```console
+python -m pip install fastbase91
+```
+
 ```python
 import fastbase91
 
@@ -14,6 +18,8 @@ assert encoded == b"TPwJh>A"
 assert fastbase91.decode(encoded) == b"hello"
 ```
 
+For Rust, run `cargo add fastbase91-core`; see [Usage](usage.md).
+
 ## What you get
 
 | Package | What it is |
@@ -21,7 +27,7 @@ assert fastbase91.decode(encoded) == b"hello"
 | `fastbase91` | The Python package (a compiled extension built on PyO3 and the Rust core) |
 | `fastbase91-core` | The Rust crate on its own, with `no_std` support for bare-metal targets |
 
-All three of these — `fastbase91`, its pure-Python reference, and the third-party `pybase91` — produce the exact same bytes and can decode each other's output. Switching between them never changes the data.
+fastbase91 implements standard [basE91](https://base91.sourceforge.net/). Its output is byte-for-byte identical to the original reference implementation — the core crate's tests compare against that C code — so it interoperates with any other standard basE91 implementation. To check one yourself: every standard implementation encodes `hello` as `TPwJh>A`, the value in the quick start above.
 
 ## What it is built for
 

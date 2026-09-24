@@ -1,6 +1,6 @@
 # 變更紀錄
 
-每個版本都產生位元組相同、可互通的標準 basE91；升級絕不會改變編碼輸出。Python 套件 `fastbase91` 與 Rust crate `fastbase91-core` 共用同一個版號。
+每個版本都產生位元組相同、可互通的標準 basE91；升級絕不會改變編碼輸出。Python 套件 `fastbase91` 與 Rust crate `fastbase91-core` 各自獨立編版號；下列每一版都是兩個套件以標題所示的版號一起發布。
 
 ## 0.1.2
 

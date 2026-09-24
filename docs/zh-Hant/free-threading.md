@@ -40,7 +40,7 @@ Python binding 標記了 `#[pymodule(gil_used = false)]`——這是 Rust 原始
 
 這對 **encode 與 decode 都適用**，而且是以你傳入的輸入位元組數為準，不是編碼／解碼後的大小。
 
-在一般（有 GIL 的）CPython 上，正是「大型呼叫放掉 GIL」讓不同執行緒的 Rust 工作可以重疊：吞吐量從單執行緒約 730 MiB/s，成長到四執行緒約 2,700 MiB/s（64 KiB 編碼；見[效能測試](benchmarks.md)）。1 KiB 以下的呼叫刻意保留 GIL，所以別期待小輸入也有這種擴展。
+在一般（有 GIL 的）CPython 上，正是「大型呼叫放掉 GIL」讓不同執行緒的 Rust 工作可以重疊，所以總吞吐量會隨執行緒數增加——實測數字見[效能測試](benchmarks.md)。1 KiB 以下的呼叫刻意保留 GIL，所以別期待小輸入也有這種擴展。
 
 ## 實際上怎麼用這些執行緒
 

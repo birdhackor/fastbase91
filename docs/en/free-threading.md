@@ -40,7 +40,7 @@ Both are on PyPI as of 0.1.1. `pip install fastbase91` picks the right one for y
 
 This applies to **both encode and decode**, and it is measured on the input you pass, not on the encoded/decoded size.
 
-On regular (GIL-enabled) CPython, releasing the GIL on the large calls is what lets Rust work from different threads overlap: throughput climbs from about 730 MiB/s on one thread to about 2,700 MiB/s on four (64 KiB encode; see [Benchmarks](benchmarks.md)). Below 1 KiB the call stays on the GIL on purpose, so do not expect that scaling for tiny inputs.
+On regular (GIL-enabled) CPython, releasing the GIL on the large calls is what lets Rust work from different threads overlap, so aggregate throughput grows with the number of threads — see [Benchmarks](benchmarks.md) for measured figures. Below 1 KiB the call stays on the GIL on purpose, so do not expect that scaling for tiny inputs.
 
 ## How to actually use the threads
 

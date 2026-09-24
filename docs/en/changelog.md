@@ -1,6 +1,6 @@
 # Changelog
 
-Every release produces byte-identical, interoperable standard basE91; upgrading never changes the encoded output. The Python package `fastbase91` and the Rust crate `fastbase91-core` share a version number.
+Every release produces byte-identical, interoperable standard basE91; upgrading never changes the encoded output. The Python package `fastbase91` and the Rust crate `fastbase91-core` are versioned independently; each release below shipped both packages at the version in its heading.
 
 ## 0.1.2
 

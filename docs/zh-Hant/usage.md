@@ -104,11 +104,11 @@ options.reject_non_alphabet = true;
 
 ### 不配置記憶體的 `no_std`
 
-若目標環境既沒有 `std` 也沒有 allocator，請關閉預設 feature：
+若目標環境既沒有 `std` 也沒有 allocator，請關閉預設 feature。把版本佔位字串換成你要使用的 fastbase91-core 版本（見 [crates.io](https://crates.io/crates/fastbase91-core)）：
 
 ```toml
 [dependencies]
-fastbase91-core = { version = "0.1.1", default-features = false }
+fastbase91-core = { version = "<version>", default-features = false }
 ```
 
 透過 `encode_into` 與 `decode_into` 使用呼叫端提供的 buffer：
@@ -132,10 +132,10 @@ assert_eq!(&decoded[..decoded_len], b"hello");
 
 `encode_into` 回傳 `Result<usize, OutputTooSmall>`。`decode_into` 回傳 `Result<usize, DecodeError>`，其 variant 包含 `OutputTooSmall` 與 `InvalidByte`。`max_encoded_len(input_len)` 與 `max_decoded_len(input_len)` 會回傳 `Option<usize>` 的輸出空間上限，供配置 buffer 時使用。
 
-若 `no_std` 環境有 allocator 並需要會配置記憶體的 API，可只啟用 `alloc`：
+若 `no_std` 環境有 allocator 並需要會配置記憶體的 API，可只啟用 `alloc`。把版本佔位字串換成你要使用的 fastbase91-core 版本（見 [crates.io](https://crates.io/crates/fastbase91-core)）：
 
 ```toml
-fastbase91-core = { version = "0.1.1", default-features = false, features = ["alloc"] }
+fastbase91-core = { version = "<version>", default-features = false, features = ["alloc"] }
 ```
 
 ### Core 串流 API

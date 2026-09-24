@@ -104,11 +104,11 @@ options.reject_non_alphabet = true;
 
 ### `no_std` without allocation
 
-Disable default features when the target has neither `std` nor an allocator:
+Disable default features when the target has neither `std` nor an allocator. Replace the version placeholder with the fastbase91-core release you want to use (see [crates.io](https://crates.io/crates/fastbase91-core)).
 
 ```toml
 [dependencies]
-fastbase91-core = { version = "0.1.1", default-features = false }
+fastbase91-core = { version = "<version>", default-features = false }
 ```
 
 Use caller-provided buffers with `encode_into` and `decode_into`:
@@ -132,10 +132,10 @@ assert_eq!(&decoded[..decoded_len], b"hello");
 
 `encode_into` returns `Result<usize, OutputTooSmall>`. `decode_into` returns `Result<usize, DecodeError>`, whose variants include `OutputTooSmall` and `InvalidByte`. `max_encoded_len(input_len)` and `max_decoded_len(input_len)` return `Option<usize>` upper bounds for sizing output storage.
 
-To use the allocating APIs in a `no_std` environment that does provide an allocator, enable only `alloc`:
+To use the allocating APIs in a `no_std` environment that does provide an allocator, enable only `alloc`. Replace the version placeholder with the fastbase91-core release you want to use (see [crates.io](https://crates.io/crates/fastbase91-core)).
 
 ```toml
-fastbase91-core = { version = "0.1.1", default-features = false, features = ["alloc"] }
+fastbase91-core = { version = "<version>", default-features = false, features = ["alloc"] }
 ```
 
 ### Streaming core API

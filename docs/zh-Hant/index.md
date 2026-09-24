@@ -6,6 +6,10 @@ basE91 是把二進位資料塞進 91 個可列印 ASCII 字元的一種做法�
 
 ## 快速開始
 
+```console
+python -m pip install fastbase91
+```
+
 ```python
 import fastbase91
 
@@ -14,6 +18,8 @@ assert encoded == b"TPwJh>A"
 assert fastbase91.decode(encoded) == b"hello"
 ```
 
+Rust 使用者可執行 `cargo add fastbase91-core`；詳見[使用方式](usage.md)。
+
 ## 你會拿到什麼
 
 | 套件 | 是什麼 |
@@ -21,7 +27,7 @@ assert fastbase91.decode(encoded) == b"hello"
 | `fastbase91` | Python 套件（以 PyO3 與 Rust core 建置的編譯擴充） |
 | `fastbase91-core` | 單獨的 Rust crate，支援 `no_std`，可跑在裸機環境 |
 
-`fastbase91`、它的純 Python 參考實作，以及第三方的 `pybase91`，三者產生的位元組完全相同，也能互相解碼對方的輸出。在它們之間切換，資料不會變。
+fastbase91 實作的是標準 [basE91](https://base91.sourceforge.net/)。它的輸出與原作者的參考實作逐位元組相同——core crate 的測試直接拿那份 C 程式碼來比對——所以能和任何標準 basE91 實作互相編解碼。想自己驗證的話：任何標準實作都會把 `hello` 編成 `TPwJh>A`，也就是上面快速開始裡的值。
 
 ## 它為什麼而生
 
