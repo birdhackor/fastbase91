@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::tables::ALPHABET;
+use crate::tables::{ALPHABET, ENCODE_PAIRS};
 
 /// Returns an encoded-length upper bound for `input_len` bytes.
 ///
@@ -87,34 +87,63 @@ impl Encoder {
             return Err(OutputTooSmall::new(required));
         }
 
-        let mut queue = self.queue;
-        let mut nbits = self.nbits;
+        // Invariant whenever bytes are ingested: `nbits <= 13` and `queue`
+        // holds exactly those bits (zeros above).
+        let mut queue = u64::from(self.queue);
+        let mut nbits = u32::from(self.nbits);
         let mut written = 0;
-        for &byte in input {
-            queue |= u32::from(byte) << nbits;
+
+        macro_rules! emit_pair {
+            ($out:expr) => {{
+                let low13 = (queue & 8191) as usize;
+                if low13 > 88 {
+                    queue >>= 13;
+                    nbits -= 13;
+                    $out.copy_from_slice(&ENCODE_PAIRS[low13]);
+                } else {
+                    let value = (queue & 16383) as usize;
+                    queue >>= 14;
+                    nbits -= 14;
+                    $out.copy_from_slice(&ENCODE_PAIRS[value]);
+                }
+            }};
+        }
+
+        // Word-at-a-time path: OR in as many whole input bytes as fit in the
+        // 64-bit queue (6..=8), which leaves 57..=64 bits, always enough for
+        // exactly four pairs (at most 56 bits). Each pair value depends only
+        // on the lowest 13/14 queued bits, so ingesting later bytes early
+        // cannot change it; the emitted symbols and the leftover state are
+        // the same as the byte loop's.
+        let mut pos = 0;
+        while pos + 8 <= input.len() {
+            let word =
+                u64::from_le_bytes(input[pos..pos + 8].try_into().expect("slice of length 8"));
+            let whole_bytes = (64 - nbits) >> 3;
+            let whole_bits = whole_bytes << 3;
+            queue |= (word & (u64::MAX >> (64 - whole_bits))) << nbits;
+            nbits += whole_bits;
+            pos += whole_bytes as usize;
+            let out = &mut output[written..written + 8];
+            emit_pair!(&mut out[0..2]);
+            emit_pair!(&mut out[2..4]);
+            emit_pair!(&mut out[4..6]);
+            emit_pair!(&mut out[6..8]);
+            written += 8;
+        }
+
+        for &byte in &input[pos..] {
+            queue |= u64::from(byte) << nbits;
             nbits += 8;
             if nbits <= 13 {
                 continue;
             }
-            let low13 = queue & 8191;
-            if low13 > 88 {
-                let value = low13 as usize;
-                queue >>= 13;
-                nbits -= 13;
-                output[written] = ALPHABET[value % 91];
-                output[written + 1] = ALPHABET[value / 91];
-                written += 2;
-            } else {
-                let value = (queue & 16383) as usize;
-                queue >>= 14;
-                nbits -= 14;
-                output[written] = ALPHABET[value % 91];
-                output[written + 1] = ALPHABET[value / 91];
-                written += 2;
-            }
+            emit_pair!(&mut output[written..written + 2]);
+            written += 2;
         }
-        self.queue = queue;
-        self.nbits = nbits;
+        // `nbits <= 13` here, so the queue fits the stored width.
+        self.queue = queue as u32;
+        self.nbits = nbits as u8;
         Ok(written)
     }
 

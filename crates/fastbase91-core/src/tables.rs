@@ -12,3 +12,16 @@ const fn decode_table() -> [u8; 256] {
 }
 
 pub(crate) const DECODE_TABLE: [u8; 256] = decode_table();
+
+const fn encode_pairs() -> [[u8; 2]; 8281] {
+    let mut table = [[0; 2]; 8281];
+    let mut value = 0;
+    while value < table.len() {
+        table[value] = [ALPHABET[value % 91], ALPHABET[value / 91]];
+        value += 1;
+    }
+    table
+}
+
+/// Every pair value in `0..91 * 91` mapped to its two symbols, low digit first.
+pub(crate) static ENCODE_PAIRS: [[u8; 2]; 8281] = encode_pairs();
