@@ -4,15 +4,17 @@
 
 wheel matrix 的單一真值源是 `.github/wheel-matrix.json`；
 `.github/workflows/python.yml` 的 `build-wheels`、`test-wheels` 與 manifest
-完整性 gate 都讀取它。目前發行兩層（皆三平台）：一般 CPython 用 `abi3-py311`，
-CPython 3.14t 用版本專屬 `cp314-cp314t`。**`abi3t-py315`（CPython 3.15+ free-threaded
-stable ABI）暫緩**：Python 3.15 尚未釋出，`actions/setup-python` 在 Windows／macOS runner
-取不到 `3.15t`（manylinux 容器雖有 dev build，但只在單一平台成得了、stable-ABI wheel 不成套，
-且對未釋出、ABI 未定版的 Python 發 wheel 過早）。待 3.15 能在三平台端到端建置後，再把該層
-三個 entry 加回 `wheel-matrix.json`，並依下段新 free-threaded wheel 的納入流程驗證。新增或移除
+完整性 gate 都讀取它。目前發行三層（皆三平台）：一般 CPython 用 `abi3-py311`，
+CPython 3.14t 用版本專屬 `cp314-cp314t`，CPython 3.15+ free-threaded 用
+`abi3t-py315`。`abi3t-py315` 已於 Python 3.15 進入 RC、ABI 凍結後恢復。建置時，
+Windows 與 macOS 的 `abi3t-py315` 由 uv 安裝 `3.15t` free-threaded 直譯器；
+manylinux 的各層都使用 maturin-action 容器內對應的直譯器；Windows 與 macOS 其餘層
+維持由 `actions/setup-python` 提供。新 stable-ABI wheel 可先做開發驗證，但只在對應
+CPython 進入 RC、ABI 凍結後才納入正式發行 matrix。新增或移除
 Python／平台時，必須更新這份 matrix、確認實際安裝 smoke test，以及更新
 這份文件。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
 必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel，另須恰有一份 sdist，
+其中 compressed ABI tag（例如 maturin 產生的 `abi3.abi3t`）必須包含 matrix 宣告的 ABI，
 並拒絕缺項、多項、重複 id、重複 filename 與非預期的 `wheels-*` 目錄。
 
 free-threaded 支援是跟著 PyO3 與 maturin 的可用支援窗走。當 PyO3 不再
@@ -77,11 +79,10 @@ output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+
    `fastbase91-core` V。缺 tag、子樹不同或有界輪詢後仍不存在皆停止；registry 查詢
    持續出錯也會 fail-closed。前兩項把 wheel 內含的 core 綁定到本地 tag
    `fastbase91-core-vV`，第三項證明該版本已發布——**只要該 tag 未被 force-move，兩者
-   合起來即等於「wheel 內含的 core == crates.io 上已發布的 V」。** 信任邊界是 tag 不被
-   移動：environment 的 selected deployment tag 規則只擋部署、不擋 force-move，必須另設
-   tag ruleset 禁止 `fastbase91-core-v*`／`v*` 的 update／delete 才能鎖死（見 P11 待辦）。
-   完全不信任本地 tag 的最強保證，是下載 crates.io 的 `.crate` 逐檔比對本地 core package；
-   它移除上述 tag 信任假設，列為 P11 強化項、目前不在 gate 內。
+   合起來即等於「wheel 內含的 core == crates.io 上已發布的 V」。** `immutable release tags`
+   ruleset 已啟用，禁止 `fastbase91-core-v*`／`v*` 的 update、delete 與 force-push，
+   因此「tag 不可被移動」是由 active ruleset 保證的信任邊界，不再只是假設。
+   未來若需再縮小信任邊界，可選擇加上遠端 `.crate` 與本地 core package 的逐檔比對。
 5. `publish-pypi` 以單次、fail-closed 的 `pypi-has` 查詢要求 `fastbase91` 的 Python
    版本尚不存在，並以 Trusted Publishing OIDC 上傳完整 `release-batch/artifacts`；
    不使用 token 或 `skip-existing`。
@@ -138,10 +139,8 @@ core 與 Python 是獨立發布線，不構成跨網站交易：一條線成功�
   首發前即限制 deployment tag 為 `v*`；確認 trust binding 的 workflow filename 是 `release.yml`。
 - 設定 protected `crates` environment 與最小權限的 `CARGO_REGISTRY_TOKEN`，首發前即
   限制 deployment tag 為 `fastbase91-core-v*`；首發後再依 crates.io OIDC 支援狀態遷移。
-- 設定 tag ruleset 禁止 `fastbase91-core-v*` 與 `v*` 的 update／delete，使已發布 tag
-  immutable、core 先發守衛對本地 tag 的信任成立；與下一項的 `.crate` 逐檔比對互補。
+- 已完成：active ruleset `immutable release tags` 禁止 `fastbase91-core-v*` 與 `v*`
+  的 update、delete 與 force-push，使已發布 tag immutable、core 先發守衛對本地 tag 的信任成立。
 - 設定 `HEALTHCHECKS_PING_URL` secret 與外部 dead-man's-switch 告警。
-- 強化 core 先發守衛：下載 crates.io 的 `.crate`，逐檔比對本地 core package，避免只信任
-  git tag 與 registry 版本存在性。
 - 實際推送測試 tag／正式 tag 前，確認 GitHub environment protection、PyPI project
   name、crates.io package name和 remote artifact hash 核對流程均已就緒。
