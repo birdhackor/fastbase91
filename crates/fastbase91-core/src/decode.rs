@@ -169,27 +169,23 @@ impl Decoder {
         let len = input.len();
         let mut i = 0;
         while i < len {
-            // Block fast path (only when no symbol is pending): eight alphabet
-            // bytes decode to four pairs written into one 8-byte output window.
+            // Block fast path: taken whenever no symbol is pending and there is a
+            // full 8-byte input group with 8 bytes of output headroom. Because this
+            // is re-checked every iteration, the block re-engages on the very next
+            // iteration once a pending symbol has been consumed by the scalar step.
             // DECODE_FF's 0xFF sentinel sets bit 7, so one OR-reduction plus a
-            // `& 0x80` test rejects any non-alphabet byte in the block; a reject,
-            // or fewer than 8 bytes of input/output headroom, falls through to the
-            // scalar step below (which is then retried on the next iteration).
-            if val == u32::MAX {
-                while i + 8 <= len && written + 8 <= output.len() {
-                    let block = &input[i..i + 8];
-                    let d0 = DECODE_FF[usize::from(block[0])];
-                    let d1 = DECODE_FF[usize::from(block[1])];
-                    let d2 = DECODE_FF[usize::from(block[2])];
-                    let d3 = DECODE_FF[usize::from(block[3])];
-                    let d4 = DECODE_FF[usize::from(block[4])];
-                    let d5 = DECODE_FF[usize::from(block[5])];
-                    let d6 = DECODE_FF[usize::from(block[6])];
-                    let d7 = DECODE_FF[usize::from(block[7])];
-                    if (d0 | d1 | d2 | d3 | d4 | d5 | d6 | d7) & 0x80 != 0 {
-                        break;
-                    }
-
+            // `& 0x80` test rejects any non-alphabet byte in the block.
+            if val == u32::MAX && i + 8 <= len && written + 8 <= output.len() {
+                let block = &input[i..i + 8];
+                let d0 = DECODE_FF[usize::from(block[0])];
+                let d1 = DECODE_FF[usize::from(block[1])];
+                let d2 = DECODE_FF[usize::from(block[2])];
+                let d3 = DECODE_FF[usize::from(block[3])];
+                let d4 = DECODE_FF[usize::from(block[4])];
+                let d5 = DECODE_FF[usize::from(block[5])];
+                let d6 = DECODE_FF[usize::from(block[6])];
+                let d7 = DECODE_FF[usize::from(block[7])];
+                if (d0 | d1 | d2 | d3 | d4 | d5 | d6 | d7) & 0x80 == 0 {
                     let out = &mut output[written..written + 8];
                     let mut w = 0;
                     w += emit_pair(
@@ -222,24 +218,24 @@ impl Decoder {
                     );
                     written += w;
                     i += 8;
+                    continue;
                 }
+                // A non-alphabet byte is in this group; fall through to one scalar step.
             }
 
-            let stop = if i + 8 < len { i + 8 } else { len };
-            while i < stop {
-                let d = DECODE_FF[usize::from(input[i])];
-                i += 1;
-                if d == 0xFF {
-                    continue;
-                }
-                let d = u32::from(d);
-                if val == u32::MAX {
-                    val = d;
-                    continue;
-                }
-                written += emit_pair(val, d, &mut queue, &mut nbits, &mut output[written..]);
-                val = u32::MAX;
+            // Scalar step: exactly one input byte, then re-evaluate the block above.
+            let d = DECODE_FF[usize::from(input[i])];
+            i += 1;
+            if d == 0xFF {
+                continue;
             }
+            let d = u32::from(d);
+            if val == u32::MAX {
+                val = d;
+                continue;
+            }
+            written += emit_pair(val, d, &mut queue, &mut nbits, &mut output[written..]);
+            val = u32::MAX;
         }
         self.queue = queue;
         self.nbits = nbits as u8;
