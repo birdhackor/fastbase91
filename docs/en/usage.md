@@ -111,7 +111,7 @@ Unsupported buffer layouts (for example non-contiguous or multi-dimensional), or
 
 Use one-shot `encode()` or `decode()` when the data fits in memory; use streaming when it does not or when data arrives in chunks.
 
-On GIL-enabled CPython, one-shot calls with input of at least 1,024 bytes release the GIL, allowing threads to run them concurrently. Smaller one-shot calls and all streaming `update()` and `finish()` calls hold the GIL. Free-threaded CPython has no GIL, so independent calls and separate `Encoder` or `Decoder` objects can run concurrently; do not share one stream object across threads. See [Free-threading](free-threading.md).
+On GIL-enabled CPython, one-shot calls with input of at least 1,024 bytes release the GIL, allowing threads to run them concurrently. Smaller one-shot calls and all streaming `update()` and `finish()` calls hold the GIL. On free-threaded CPython, while the GIL stays disabled at runtime (`sys._is_gil_enabled()` returns `False`), independent calls and separate `Encoder` or `Decoder` objects can run concurrently; do not share one stream object across threads. [Free-threading](free-threading.md) explains what can turn the GIL back on.
 
 Each streaming `update()` has fixed overhead. Very small chunks are noticeably slower; chunks of tens of KiB, such as 64 KiB, are sufficient. See [Benchmarks](benchmarks.md) for measured throughput of one-shot calls.
 

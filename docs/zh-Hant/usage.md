@@ -111,7 +111,7 @@ assert decoded == b"hello"
 
 資料放得進記憶體時，使用一次性 `encode()` 或 `decode()`；資料放不進去或分段抵達時，使用串流。
 
-在有 GIL 的 CPython 上，輸入至少為 1,024 位元組的一次性呼叫會放掉 GIL，讓多條執行緒可並行執行。較小的一次性呼叫，以及所有串流的 `update()` 與 `finish()` 呼叫都握著 GIL。自由執行緒 CPython 沒有 GIL，所以各自獨立的呼叫與分開的 `Encoder` 或 `Decoder` 物件可以並行；不要讓多條執行緒共用同一個串流物件。詳情見[自由執行緒](free-threading.md)。
+在有 GIL 的 CPython 上，輸入至少為 1,024 位元組的一次性呼叫會放掉 GIL，讓多條執行緒可並行執行。較小的一次性呼叫，以及所有串流的 `update()` 與 `finish()` 呼叫都握著 GIL。在自由執行緒 CPython 上，只要 GIL 在執行期維持關閉（`sys._is_gil_enabled()` 回傳 `False`），各自獨立的呼叫與分開的 `Encoder` 或 `Decoder` 物件就可以並行；不要讓多條執行緒共用同一個串流物件。哪些情況會把 GIL 重新打開，見[自由執行緒](free-threading.md)。
 
 每次串流 `update()` 都有固定成本。極小區塊會明顯變慢；幾十 KiB 的區塊，例如 64 KiB，就足夠。一次性呼叫的實測吞吐量請見[效能測試](benchmarks.md)。
 
