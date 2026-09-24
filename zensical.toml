@@ -1,0 +1,53 @@
+[project]
+site_name = "fastbase91"
+site_url = "https://birdhackor.github.io/fastbase91/"
+repo_url = "https://github.com/birdhackor/fastbase91"
+repo_name = "birdhackor/fastbase91"
+nav = [
+  { "Language / 語言" = "index.md" },
+  { "English" = [
+    { "Overview" = "en/index.md" },
+    { "Usage" = "en/usage.md" },
+    { "Free-threading" = "en/free-threading.md" },
+    { "Comparison" = "en/comparison.md" },
+    { "Benchmarks" = "en/benchmarks.md" },
+  ] },
+  { "正體中文" = [
+    { "總覽" = "zh/index.md" },
+    { "使用方式" = "zh/usage.md" },
+    { "自由執行緒" = "zh/free-threading.md" },
+    { "方案比較" = "zh/comparison.md" },
+    { "效能測試" = "zh/benchmarks.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "navigation.sections",
+  "navigation.top",
+  "content.code.copy",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "material/brightness-7"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "material/brightness-4"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+pymdownx.superfences = {}
+pymdownx.highlight = { anchor_linenums = true }
+

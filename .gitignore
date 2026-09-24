@@ -23,6 +23,7 @@ wheelhouse/
 .python-version
 .idea/
 .vscode/
+site/
 
 # cargo-fuzz
 fuzz/target/
