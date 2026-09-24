@@ -64,7 +64,9 @@ import filecmp
 from pathlib import Path
 
 if not Path("input.bin").exists():
-    Path("input.bin").write_bytes(bytes(i % 251 for i in range(1_000_000)))
+    with Path("input.bin").open("wb") as sample:
+        for start in range(0, 1_000_000, 1000):
+            sample.write(bytes(i % 251 for i in range(start, start + 1000)))
 
 chunk_size = 64 * 1024
 
