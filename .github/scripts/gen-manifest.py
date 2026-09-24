@@ -161,11 +161,13 @@ def collect_policy_artifacts(
         filenames.add(wheel.name)
 
         python_tag, abi_tag, platform_tag = wheel_tags(wheel)
-        if python_tag != entry["python_tag"] or abi_tag != entry["abi_tag"]:
+        abi_tags = abi_tag.split(".")
+        if python_tag != entry["python_tag"] or entry["abi_tag"] not in abi_tags:
             raise ValueError(
                 f"wheels-{artifact_id} contains {wheel.name} with tag "
                 f"{python_tag}-{abi_tag}; expected "
-                f"{entry['python_tag']}-{entry['abi_tag']}"
+                f"Python tag {entry['python_tag']} and ABI tag set containing "
+                f"{entry['abi_tag']}"
             )
         if re.fullmatch(entry["platform_tag_regex"], platform_tag) is None:
             raise ValueError(
