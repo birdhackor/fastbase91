@@ -6,11 +6,15 @@ wheel matrix 的單一真值源是 `.github/wheel-matrix.json`；
 `.github/workflows/python.yml` 的 `build-wheels`、`test-wheels` 與 manifest
 完整性 gate 都讀取它。目前發行三層（皆三平台）：一般 CPython 用 `abi3-py311`，
 CPython 3.14t 用版本專屬 `cp314-cp314t`，CPython 3.15+ free-threaded 用
-`abi3t-py315`。`abi3t-py315` 已於 Python 3.15 進入 RC、ABI 凍結後恢復。建置時，
-Windows 與 macOS 的 `abi3t-py315` 由 uv 安裝 `3.15t` free-threaded 直譯器；
-manylinux 的各層都使用 maturin-action 容器內對應的直譯器；Windows 與 macOS 其餘層
-維持由 `actions/setup-python` 提供。新 stable-ABI wheel 可先做開發驗證，但只在對應
-CPython 進入 RC、ABI 凍結後才納入正式發行 matrix。新增或移除
+`abi3t-py315`。`abi3t-py315` 已於 Python 3.15 進入 RC、ABI 凍結後恢復。
+
+build 與 test 的直譯器來源分開決定。**build** 只有兩種 provider
+（`wheel-matrix.json` 的 `python_provider`）：manylinux 各層在 maturin-action 容器內
+建置；所有 Windows 與 macOS 層一律由 uv 安裝對應直譯器（regular 的 3.11、
+free-threaded 的 3.14t／3.15t）後交給 maturin 的 `-i`。**test** 依 `free_threaded`
+決定，與 build provider 無關：free-threaded 層（含 3.15 RC）由 uv 建隔離環境，
+regular 層由 `actions/setup-python` 提供。新 stable-ABI wheel 可先做開發驗證，但只在
+對應 CPython 進入 RC、ABI 凍結後才納入正式發行 matrix。新增或移除
 Python／平台時，必須更新這份 matrix、確認實際安裝 smoke test，以及更新
 這份文件。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
 必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel，另須恰有一份 sdist，
@@ -141,6 +145,12 @@ core 與 Python 是獨立發布線，不構成跨網站交易：一條線成功�
   限制 deployment tag 為 `fastbase91-core-v*`；首發後再依 crates.io OIDC 支援狀態遷移。
 - 已完成：active ruleset `immutable release tags` 禁止 `fastbase91-core-v*` 與 `v*`
   的 update、delete 與 force-push，使已發布 tag immutable、core 先發守衛對本地 tag 的信任成立。
+- 已完成：active ruleset `main branch CI gate`（bypass：repo admin）要求 `python-ci`
+  與 `rust-ci` 兩個 aggregate check 通過才能更新 main；matrix job 名稱會隨 matrix 變動，
+  故 required check 綁這兩個固定名稱而非個別 matrix leg。這也讓 GitHub 原生 auto-merge 可用。
+- 已完成：Renovate 只對 CI 基礎 Action（checkout／setup-python／download-artifact／
+  upload-artifact）的非 major 更新 auto-merge；建置工具（maturin-action／setup-uv／
+  rust-toolchain）、發布 Action（gh-action-pypi-publish）與 pre-1.0 相依（PyO3）維持人工。
 - 設定 `HEALTHCHECKS_PING_URL` secret 與外部 dead-man's-switch 告警。
 - 實際推送測試 tag／正式 tag 前，確認 GitHub environment protection、PyPI project
   name、crates.io package name和 remote artifact hash 核對流程均已就緒。

@@ -23,9 +23,15 @@
       "groupName": "GitHub Actions pins"
     },
     {
-      "description": "Low-risk auto-merge: non-major, SHA-pinned GitHub Actions updates merge automatically once the required CI checks pass; majors still need human review",
+      "description": "Low-risk auto-merge: non-major updates to CI infrastructure Actions that PR CI fully exercises. Fail-closed allowlist; build tools (maturin-action, setup-uv, rust-toolchain) and the PyPI publish Action are excluded per the project brief, since differential tests miss wheel-tag/packaging/min-OS changes and the publish Action never runs in PR CI.",
       "matchManagers": [
         "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/checkout",
+        "actions/setup-python",
+        "actions/download-artifact",
+        "actions/upload-artifact"
       ],
       "matchUpdateTypes": [
         "minor",
