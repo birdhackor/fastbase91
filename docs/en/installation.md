@@ -22,13 +22,13 @@ Regular CPython uses an abi3 wheel; one wheel covers every version from 3.11 onw
 
 ### Other platforms
 
-CPython on platforms such as Linux ARM64, Intel Mac, Windows ARM, Alpine/musl, and Linux with glibc older than 2.28 has no pre-built wheel. `pip` downloads the source distribution and builds it locally; this requires a Rust toolchain (stable, for example installed with rustup). CI validates source builds only on Linux x86_64.
+CPython on platforms such as Linux ARM64, Intel Mac, Windows ARM, Alpine/musl, and Linux with glibc older than 2.28 has no pre-built wheel. `pip` downloads the source distribution and tries to build it locally; this requires a current stable Rust toolchain (for example installed with rustup). CI validates source builds only on Linux x86_64.
 
 ### Unsupported environments
 
 - PyPy and other non-CPython implementations are unsupported; there are no PyPI wheels for them, and CI does not build or test them.
 - Free-threaded CPython 3.13t is unsupported: it has no wheel, and building from source fails. Free-threaded CPython requires 3.14t or later.
-- Subinterpreters are unsupported: importing `fastbase91` in a subinterpreter created with `concurrent.interpreters`, for example, raises `ImportError`. Use it in the main interpreter.
+- Subinterpreters are unsupported, and a successful import does not mean support. A subinterpreter with its own GIL (for example, one created with `concurrent.interpreters`) raises `ImportError` when importing `fastbase91`. One that shares the main interpreter's GIL (for example, one created through the C API by an application that embeds Python) imports it without an error, but the extension's classes and exception type are the same objects in every interpreter, not isolated copies. Use `fastbase91` in the main interpreter; subinterpreter use is not tested.
 
 ### Free-threaded Python
 

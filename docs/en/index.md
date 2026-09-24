@@ -33,7 +33,7 @@ fastbase91 implements standard [basE91](https://base91.sourceforge.net/). Its ou
 
 - **Concurrency.** A large one-shot call hands the work to Rust and lets go of Python's global lock (the GIL), so several calls on several threads run at the same time instead of taking turns. See [Benchmarks](benchmarks.md).
 - **Free-threaded Python.** The extension is marked as safe for the no-GIL build, so importing it does not switch the GIL back on. [Why that matters](free-threading.md).
-- **Portability.** Pre-built Python wheels cover Linux (x86_64), macOS (Apple silicon), and Windows (x86_64), and other CPython platforms can build from source with a Rust toolchain (see [Installation & compatibility](installation.md)); the Rust core runs without `std` or even a memory allocator.
+- **Portability.** Pre-built Python wheels cover Linux (x86_64), macOS (Apple silicon), and Windows (x86_64); on other CPython platforms, pip tries to build from source, which needs a Rust toolchain (see [Installation & compatibility](installation.md)). The Rust core runs without `std` or even a memory allocator.
 - **Safety.** The Rust core is `#![forbid(unsafe_code)]` — the compiler rejects any unsafe block.
 - **Control.** Both APIs can stream (encode/decode in chunks), and decoding can reject anything outside the basE91 alphabet instead of silently skipping it.
 

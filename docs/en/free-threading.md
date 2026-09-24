@@ -1,20 +1,20 @@
 # Free-threading
 
-**The short version:** if you switched to free-threaded Python to get real parallelism, one unprepared package can turn the GIL back on for the process. CPython prints a `RuntimeWarning`, but the import succeeds and the program continues with threads serialized, so the warning can be easy to miss and leave you with slower code. fastbase91 is built so that importing it never does that.
+**The short version:** if you switched to free-threaded Python to get real parallelism, one unprepared package can turn the GIL back on for the process. CPython prints a `RuntimeWarning`, but the import succeeds and the program continues with Python code in its threads serialized again, so the warning can be easy to miss and leave you with slower code. fastbase91 is built so that importing it never does that.
 
 ## The trap this avoids
 
 Free-threaded CPython became available in 3.13 as an experimental build and has been officially supported since 3.14. Normal CPython has a global interpreter lock — the GIL — that lets only one thread run Python at a time; the no-GIL build removes it so threads genuinely run at once. fastbase91 supports free-threaded CPython 3.14t and later; 3.13t is unsupported — see [Installation & compatibility](installation.md).
 
-Here is the catch. Compiled extensions (packages with a C or Rust part, like NumPy or this one) have to opt in to running without the GIL. If you import an extension that has **not** declared it is ready, CPython plays it safe and **turns the GIL back on for the entire process** — not just for that package — and prints a `RuntimeWarning`; the import does not fail, and the program continues. So a single dependency that has not caught up can drop your whole program back to one-thread-at-a-time.
+Here is the catch. Compiled extensions (packages with a C or Rust part, like NumPy or this one) have to opt in to running without the GIL. If you import an extension that has **not** declared it is ready, CPython plays it safe and **turns the GIL back on for the entire process** — not just for that package — and prints a `RuntimeWarning`; the import does not fail, and the program continues. So a single dependency that has not caught up can put the Python code in your threads back to running one thread at a time.
 
-The warning is easy to miss — for example, when output is redirected or buried in logs. Your threads still run, your results are still correct — they are just serialized again, and the parallelism you came for is gone. `PYTHON_GIL=1` or `-X gil=1` can also re-enable the GIL; check `sys._is_gil_enabled()` to see its current state.
+The warning is easy to miss — for example, when output is redirected or buried in logs. Your threads keep running and your results stay correct, but their Python code runs one thread at a time again. fastbase91 one-shot calls with input of at least 1,024 bytes release the GIL and can still overlap; smaller one-shot calls and all streaming `update()` and `finish()` calls take turns — see [When a call runs in parallel](#when-a-call-runs-in-parallel). `PYTHON_GIL=1` or `-X gil=1` can also re-enable the GIL; check `sys._is_gil_enabled()` to see its current state.
 
 ## Why fastbase91 is safe to import
 
 The Python binding is marked `#[pymodule(gil_used = false)]` — one line in the Rust source that tells CPython "this module is safe with no GIL." Because of that marker, importing fastbase91 does **not** trigger the fallback above; other extensions that have not declared support, or `PYTHON_GIL=1` / `-X gil=1`, can still re-enable the GIL.
 
-Concretely: you build a service on free-threaded Python so eight worker threads can encode payloads in parallel. You add fastbase91 for the encoding. Import it, and `sys._is_gil_enabled()` stays `False`; your eight threads keep running at the same time. Had you reached for an extension that did not declare support, that one import would have re-enabled the GIL and your eight threads would be taking turns — same output, a fraction of the throughput.
+Concretely: you build a service on free-threaded Python so eight worker threads can encode payloads in parallel. You add fastbase91 for the encoding. Import it, and `sys._is_gil_enabled()` stays `False`; your eight threads keep running at the same time. Had you reached for an extension that did not declare support and holds the GIL while it works, that one import would have re-enabled the GIL and your eight threads would be taking turns — same output, a fraction of the throughput.
 
 A continuous-integration job proves this on every change: on a free-threaded interpreter it imports fastbase91, asserts `sys._is_gil_enabled()` is still `False`, then round-trips many payloads through concurrent encode/decode calls and checks every byte. (This proves import safety and concurrent correctness — it is not a promise that sharing one `Encoder`/`Decoder` object between threads is safe; see below.)
 

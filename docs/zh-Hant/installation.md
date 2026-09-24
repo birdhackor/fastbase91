@@ -22,13 +22,13 @@ python -m pip install fastbase91
 
 ### 其他平台
 
-CPython 在 Linux ARM64、Intel Mac、Windows ARM、Alpine／musl，以及 glibc 早於 2.28 的 Linux 等平台沒有預先建好的 wheel。`pip` 會下載原始碼發行版並在本機編譯；需要 Rust 工具鏈（stable，例如透過 rustup 安裝）。CI 只在 Linux x86_64 上驗證原始碼建置。
+CPython 在 Linux ARM64、Intel Mac、Windows ARM、Alpine／musl，以及 glibc 早於 2.28 的 Linux 等平台沒有預先建好的 wheel。`pip` 會下載原始碼發行版並嘗試在本機編譯；需要目前的 stable 版 Rust 工具鏈（例如透過 rustup 安裝）。CI 只在 Linux x86_64 上驗證原始碼建置。
 
 ### 不支援的環境
 
 - PyPy 與其他非 CPython 實作不支援；這些實作沒有 PyPI wheel，CI 也沒有在其上建置或測試。
 - 自由執行緒 CPython 3.13t 不支援：沒有 wheel，從原始碼建置會失敗。自由執行緒 CPython 需要 3.14t 以上。
-- 子直譯器不支援：在例如由 `concurrent.interpreters` 建立的子直譯器裡匯入 `fastbase91` 會拋出 `ImportError`。請在主直譯器使用。
+- 子直譯器不支援，匯入成功也不代表受到支援。有自己 GIL 的子直譯器（例如由 `concurrent.interpreters` 建立的）匯入 `fastbase91` 時會拋出 `ImportError`；與主直譯器共用 GIL 的子直譯器（例如嵌入 Python 的應用程式透過 C API 建立的）匯入不會報錯，但擴充的類別與例外型別在各直譯器之間是同一份物件，並未隔離。請在主直譯器使用 `fastbase91`；在子直譯器中使用沒有經過測試。
 
 ### 自由執行緒 Python
 
