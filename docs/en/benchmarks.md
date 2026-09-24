@@ -1,6 +1,6 @@
 # Benchmarks
 
-These numbers were re-measured for the 0.1.2 release (see the [Changelog](changelog.md) for what changed). Throughput depends heavily on the machine and on whatever else it is doing, so read every number as **relative**, not as a guarantee. This is a single run on one laptop; run-to-run wobble of 10–15% is normal.
+Throughput depends heavily on the machine and on whatever else it is doing, so read every number as **relative**, not as a guarantee. This is a single run on one computer; run-to-run wobble of 10–15% is normal.
 
 ## Environment
 
