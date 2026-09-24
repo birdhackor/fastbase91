@@ -9,8 +9,8 @@ nav = [
   { "Overview" = "index.md" },
   { "Usage" = "usage.md" },
   { "Free-threading" = "free-threading.md" },
-  { "Comparison" = "comparison.md" },
   { "Benchmarks" = "benchmarks.md" },
+  { "Changelog" = "changelog.md" },
 ]
 
 [project.theme]

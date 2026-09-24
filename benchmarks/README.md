@@ -34,28 +34,27 @@ uv pip install --python .venv/bin/python fastbase91 pybase91
 
 Numbers are **machine-dependent**; treat them as relative, not absolute, and
 expect 10–15% run-to-run wobble. The snapshot below is a single run on Apple M1,
-macOS 26.4.1, CPython 3.13.15 (fastbase91 0.1.1 built from this repo's source,
-pybase91 0.2.2 from PyPI).
+macOS 26.4.1, CPython 3.13.15 (fastbase91 0.1.2 and pybase91 0.2.2 from PyPI).
 
 Single-threaded throughput (MiB/s of input), encode / decode-lenient / decode-strict:
 
-| impl              | 1 KiB enc/len/strict | 64 KiB enc/len/strict | 1 MiB enc/len/strict |
-| ----------------- | -------------------- | --------------------- | -------------------- |
-| fastbase91 (Rust) | 614 / 683 / 480      | 715 / 856 / 565       | 743 / 863 / 572      |
-| pybase91 (Rust)   | 890 / 737 / -        | 1043 / 827 / -        | 1048 / 883 / -       |
-| pure-Python       | 7.0 / 5.4 / -        | 7.4 / 5.4 / -         | 7.4 / 5.5 / -        |
+| impl        | 1 KiB enc/len/strict | 64 KiB enc/len/strict | 1 MiB enc/len/strict |
+| ----------- | -------------------- | --------------------- | -------------------- |
+| fastbase91  | 1152 / 837 / 437     | 1375 / 948 / 469      | 1624 / 1076 / 488    |
+| pybase91    | 754 / 621 / -        | 975 / 827 / -         | 1046 / 850 / -       |
+| pure-Python | 6.1 / 4.7 / -        | 6.3 / 4.9 / -         | 6.4 / 5.5 / -        |
 
 Concurrency scaling (64 KiB **encode**, aggregate MiB/s, GIL-enabled CPython 3.13):
 
-| impl              | 1 thread | 2 threads | 4 threads |
-| ----------------- | -------- | --------- | --------- |
-| fastbase91 (Rust) | 733      | 1407      | 2704      |
-| pybase91 (Rust)   | 1039     | 1040      | 1040      |
-| pure-Python       | 7        | 7         | 7         |
+| impl        | 1 thread | 2 threads | 4 threads |
+| ----------- | -------- | --------- | --------- |
+| fastbase91  | 1680     | 3200      | 6141      |
+| pybase91    | 1038     | 1039      | 1043      |
+| pure-Python | 7        | 7         | 7         |
 
-Reading these together: **pybase91 has the higher single-threaded encode**,
-while lenient decode is now roughly a tie. **fastbase91 scales with threads** (it
-releases the GIL, so parallel calls overlap) and overtakes pybase91 once a couple
-of threads are in play. pybase91 stays flat because it holds the GIL for the
-call; pure-Python is GIL-bound bytecode. fastbase91 also ships free-threaded
-(3.14t/3.15t) and Windows wheels, which pybase91 currently does not.
+The single-threaded tables and the concurrency table measure different things.
+fastbase91 releases the GIL on calls ≥ 1 KiB, so its aggregate throughput grows
+with the thread count, while an implementation that holds the GIL for the call
+stays flat. Strict decode checks every byte against the alphabet, so it runs
+below lenient decode. fastbase91 also ships free-threaded (3.14t/3.15t) and
+Windows wheels, which pybase91 0.2.2 does not.

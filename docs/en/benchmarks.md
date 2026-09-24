@@ -1,15 +1,15 @@
 # Benchmarks
 
-These numbers were re-measured for the 0.1.1 release, which includes a straight-line encode hot loop and a split decode path (see below). Throughput depends heavily on the machine and on whatever else it is doing, so read every number as **relative**, not as a guarantee. This is a single run on one laptop; run-to-run wobble of 10–15% is normal.
+These numbers were re-measured for the 0.1.2 release (see the [Changelog](changelog.md) for what changed). Throughput depends heavily on the machine and on whatever else it is doing, so read every number as **relative**, not as a guarantee. This is a single run on one laptop; run-to-run wobble of 10–15% is normal.
 
 ## Environment
 
 - Apple M1, macOS 26.4.1
 - CPython 3.13.15
-- fastbase91 0.1.1 (built from source in this repository)
+- fastbase91 0.1.2 (from PyPI)
 - pybase91 0.2.2 (from PyPI)
 
-Every figure is MiB/s of **input** bytes. The run also confirms fastbase91, pybase91, and the pure-Python reference emit identical, interoperable basE91.
+The run also confirms fastbase91, pybase91, and the pure-Python reference emit identical, interoperable basE91.
 
 ## Single-threaded throughput
 
@@ -17,40 +17,38 @@ Each table separates **encode** from **decode**, and decode is split into **leni
 
 **1 KiB input**
 
-| Implementation | encode | decode (lenient) | decode (strict) |
+| Implementation | encode (MiB/s) | decode lenient (MiB/s) | decode strict (MiB/s) |
 | --- | ---: | ---: | ---: |
-| fastbase91 (Rust) | 614 | 683 | 480 |
-| pybase91 (Rust) | 890 | 737 | — |
-| pure Python | 7.0 | 5.4 | — |
+| fastbase91 | 1,152 | 837 | 437 |
+| pybase91 | 754 | 621 | — |
+| pure Python | 6.1 | 4.7 | — |
 
 **64 KiB input**
 
-| Implementation | encode | decode (lenient) | decode (strict) |
+| Implementation | encode (MiB/s) | decode lenient (MiB/s) | decode strict (MiB/s) |
 | --- | ---: | ---: | ---: |
-| fastbase91 (Rust) | 715 | 856 | 565 |
-| pybase91 (Rust) | 1,043 | 827 | — |
-| pure Python | 7.4 | 5.4 | — |
+| fastbase91 | 1,375 | 948 | 469 |
+| pybase91 | 975 | 827 | — |
+| pure Python | 6.3 | 4.9 | — |
 
 **1 MiB input**
 
-| Implementation | encode | decode (lenient) | decode (strict) |
+| Implementation | encode (MiB/s) | decode lenient (MiB/s) | decode strict (MiB/s) |
 | --- | ---: | ---: | ---: |
-| fastbase91 (Rust) | 743 | 863 | 572 |
-| pybase91 (Rust) | 1,048 | 883 | — |
-| pure Python | 7.4 | 5.5 | — |
+| fastbase91 | 1,624 | 1,076 | 488 |
+| pybase91 | 1,046 | 850 | — |
+| pure Python | 6.4 | 5.5 | — |
 
-Reading these: pybase91 encodes faster on one thread (roughly 1.4–1.5x here). Lenient decode is now a near tie — fastbase91 edges ahead at 64 KiB, pybase91 edges ahead at 1 MiB. Strict decode costs fastbase91 roughly a third of its lenient decode speed, the price of checking every byte, and is still about 100x the pure-Python baseline.
+Strict decode checks every input byte against the alphabet, which is why it runs below lenient decode; it is still far above the pure-Python baseline. The pure-Python figures are GIL-bound Python bytecode.
 
 ## Concurrency scaling
 
 **This table measures encode**, at 64 KiB, as aggregate MiB/s across threads, on GIL-enabled CPython 3.13. Both encode and decode release the GIL on inputs of 1,024 bytes or more, so decode scales the same way; encode is shown here as the representative case.
 
-| Implementation | 1 thread | 2 threads | 4 threads |
+| Implementation | 1 thread (MiB/s) | 2 threads (MiB/s) | 4 threads (MiB/s) |
 | --- | ---: | ---: | ---: |
-| fastbase91 (Rust) | 733 | 1,407 | 2,704 |
-| pybase91 (Rust) | 1,039 | 1,040 | 1,040 |
+| fastbase91 | 1,680 | 3,200 | 6,141 |
+| pybase91 | 1,038 | 1,039 | 1,043 |
 | pure Python | 7 | 7 | 7 |
 
-fastbase91 releases the GIL on these 64 KiB calls, so Rust work from several threads overlaps and total throughput climbs almost linearly. It starts behind pybase91 on one thread, passes it at two, and is far ahead at four. pybase91 stays flat because it holds the GIL for the call; the pure-Python version is stuck on GIL-bound bytecode either way.
-
-The takeaway is a trade-off, not a ranking: pybase91 wins one-thread encode, while fastbase91 wins as soon as the workload has a few large calls to run at once.
+fastbase91 releases the GIL on these 64 KiB calls, so Rust work from several threads overlaps and aggregate throughput grows with the thread count. An implementation that holds the GIL for the whole call stays flat, because its threads take turns; the pure-Python version is GIL-bound bytecode either way.

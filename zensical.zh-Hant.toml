@@ -9,8 +9,8 @@ nav = [
   { "總覽" = "index.md" },
   { "使用方式" = "usage.md" },
   { "自由執行緒" = "free-threading.md" },
-  { "方案比較" = "comparison.md" },
   { "效能測試" = "benchmarks.md" },
+  { "變更紀錄" = "changelog.md" },
 ]
 
 [project.theme]

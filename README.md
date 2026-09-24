@@ -62,8 +62,8 @@ assert fastbase91.decode(encoded) == b"hello"
 
 ## Documentation
 
-Full documentation (English / 正體中文), including the comparison with other
-basE91 libraries, the free-threading support matrix, and benchmarks:
+Full documentation (English / 正體中文), including usage, the free-threading
+support matrix, benchmarks, and a changelog:
 **https://birdhackor.github.io/fastbase91/**
 
 ## Versioning

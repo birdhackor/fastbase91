@@ -1,6 +1,6 @@
 # 總覽
 
-fastbase91 是給 Python 與 Rust 用的 basE91 編解碼器。它用一點單執行緒速度，換來大家實際會卡住的能力：平行處理、跑在自由執行緒（free-threaded）Python 上、跑在 Windows 上，以及完全不靠作業系統就能跑。
+fastbase91 是給 Python 與 Rust 用的 basE91 編解碼器，為大家實際會卡住的地方而生：平行處理、跑在自由執行緒（free-threaded）Python 上、跑在 Windows 上，以及完全不靠作業系統就能跑。
 
 basE91 是把二進位資料塞進 91 個可列印 ASCII 字元的一種做法。編碼後的文字大約比原始位元組大 23%，base64 則大約 33%——所以當你得把二進位資料塞進只能放文字的通道時，basE91 更省空間。
 
@@ -30,9 +30,5 @@ assert fastbase91.decode(encoded) == b"hello"
 - **可攜性。** Python wheel 涵蓋 Windows、macOS 與 Linux；Rust core 不需要 `std`、甚至不需要記憶體配置器（allocator）也能跑。
 - **安全性。** Rust core 是 `#![forbid(unsafe_code)]`——編譯器直接拒絕任何 unsafe 區塊。
 - **控制力。** 兩種 API 都能串流（分段編解碼），而且解碼時可以拒絕 basE91 字母表以外的位元組，而不是默默略過。
-
-## 它不擅長的地方
-
-fastbase91 **不是**這裡最快的單執行緒 basE91 編碼器——`pybase91` 才是。如果你的問題從頭到尾就是「一條執行緒、一次編碼、越快越好」，那就選 pybase91。當你還需要上面那串能力時，fastbase91 才是更好的選擇。[方案比較](comparison.md)會誠實把這個取捨講清楚。
 
 接著看：[使用方式](usage.md)裡的完整 API。
