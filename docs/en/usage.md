@@ -36,7 +36,7 @@ The encoder does not insert line breaks. If a channel needs line-wrapped data, y
 
 ### Lenient and strict decoding
 
-Lenient decoding is the default. It skips every byte outside the basE91 alphabet, including spaces, line breaks, NUL bytes, and bytes at `0x80` or above. The reference basE91 decoder uses the same treatment, so basE91 text wrapped at line breaks can be decoded directly.
+Lenient decoding is the default. It skips every byte outside the basE91 alphabet, including spaces, line breaks, NUL bytes, and bytes at `0x80` or above. The reference basE91 decoder uses the same treatment, so basE91 text that another tool wrapped across lines can be decoded directly.
 
 ```python
 noisy = b"TP\nwJ h\x00>\xffA"
@@ -57,10 +57,14 @@ Use `strict=True` for untrusted input, or for a protocol where extra bytes indic
 
 ### Streaming
 
-Stream data that does not fit in memory or arrives in chunks. Write each result as it is returned: memory used for payload data is bounded by the chunk size rather than the total input size.
+Stream data that does not fit in memory or arrives in chunks. Write each result as it is returned: memory used for payload data is bounded by the chunk size rather than the total input size. This example encodes `input.bin` to `encoded.b91`, then decodes it to `decoded.bin`; if `input.bin` is not present in the directory, it first writes 1 MB of sample data (place your own file at `input.bin` to process it).
 
 ```python
+import filecmp
 from pathlib import Path
+
+if not Path("input.bin").exists():
+    Path("input.bin").write_bytes(bytes(i % 251 for i in range(1_000_000)))
 
 chunk_size = 64 * 1024
 
@@ -75,10 +79,10 @@ with Path("encoded.b91").open("rb") as source, Path("decoded.bin").open("wb") as
     while chunk := source.read(chunk_size):
         destination.write(decoder.update(chunk))
     destination.write(decoder.finish())
-
+assert filecmp.cmp("input.bin", "decoded.bin", shallow=False)
 ```
 
-`decoded.bin` and `input.bin` are byte-for-byte identical.
+The final line compares the two files in small chunks with `filecmp.cmp(..., shallow=False)`, so the check itself does not read the entire files into memory.
 
 Chunk boundaries do not change the result: concatenating streaming output gives the same bytes as one-shot `encode()` or `decode()`. `finish()` emits remaining bits that have not formed a complete group and marks the end of that message. After `finish()`, another `update()` or `finish()` on that object raises `ValueError`; use one `Encoder` or `Decoder` for each message.
 
@@ -101,7 +105,7 @@ decoded += decoder.finish()
 assert decoded == b"hello"
 ```
 
-Unsupported buffer layouts or non-byte buffers raise `BufferError`. Calls after `finish()` raise `ValueError`, and passing `str` raises `TypeError`.
+Unsupported buffer layouts (for example non-contiguous or multi-dimensional), or buffers whose items are not single bytes, raise `BufferError`. Calls after `finish()` raise `ValueError`, and passing `str` raises `TypeError`.
 
 ### Choosing one-shot or streaming
 
@@ -252,7 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-The `Vec<u8>` values provide a `std` sink for the example; replacing their `extend_from_slice` calls with a sink keeps the update loop suitable for `no_std`. Buffers sized with `max_encoded_len(CHUNK)` and `max_decoded_len(CHUNK)` hold every `update()` result for input of at most `CHUNK` bytes in any stream state, so this example does not receive `OutputTooSmall`. With another buffer size, `update()` can return `OutputTooSmall`; its `required()` method gives the required capacity. In that case, state and output remain unchanged, so retry with a larger buffer.
+The `Vec<u8>` values provide a `std` sink for the example; replacing their `extend_from_slice` calls with a sink keeps the update loop suitable for `no_std`. Buffers sized with `max_encoded_len(CHUNK)` and `max_decoded_len(CHUNK)` hold every `update()` result for input of at most `CHUNK` bytes in any stream state, so this example does not receive `OutputTooSmall`. With another buffer size, `update()` can report `OutputTooSmall`: the encoder returns it directly and the decoder wraps it as `DecodeError::OutputTooSmall`. Its `required()` method gives the required capacity. In that case, state and output remain unchanged, so retry with a larger buffer.
 
 In strict mode, `InvalidByte { offset, .. }` reports the offset within the chunk passed to that `update()`, not the complete stream. Rust does not accumulate that offset. The decoder state remains unchanged on that error, but output written by that call is unspecified and must be discarded.
 

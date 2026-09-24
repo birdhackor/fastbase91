@@ -8,7 +8,7 @@
 python -m pip install fastbase91
 ```
 
-### One-shot 編解碼
+### 一次性編解碼
 
 ```python
 import fastbase91
@@ -57,10 +57,14 @@ except fastbase91.DecodeError as error:
 
 ### 串流操作
 
-資料放不進記憶體或分段抵達時，請用串流。每次拿到結果就寫出去，承載資料所用的記憶體會受區塊大小限制，不隨總輸入大小增加。
+資料放不進記憶體或分段抵達時，請用串流。每次拿到結果就寫出去，承載資料所用的記憶體會受區塊大小限制，不隨總輸入大小增加。本範例會把 `input.bin` 編成 `encoded.b91`，再解回 `decoded.bin`；若目錄裡沒有 `input.bin`，會先寫入 1 MB 的範例資料（把你自己的檔案放成 `input.bin` 就會處理你的檔案）。
 
 ```python
+import filecmp
 from pathlib import Path
+
+if not Path("input.bin").exists():
+    Path("input.bin").write_bytes(bytes(i % 251 for i in range(1_000_000)))
 
 chunk_size = 64 * 1024
 
@@ -75,10 +79,10 @@ with Path("encoded.b91").open("rb") as source, Path("decoded.bin").open("wb") as
     while chunk := source.read(chunk_size):
         destination.write(decoder.update(chunk))
     destination.write(decoder.finish())
-
+assert filecmp.cmp("input.bin", "decoded.bin", shallow=False)
 ```
 
-`decoded.bin` 與 `input.bin` 逐位元組相同。
+最後一行以 `filecmp.cmp(..., shallow=False)` 分小塊比對兩個檔案，因此這項檢查本身也不會把整個檔案讀進記憶體。
 
 切塊位置不影響結果：把串流輸出接起來，會得到與一次性 `encode()` 或 `decode()` 相同的位元組。`finish()` 會送出尚未湊成完整一組的剩餘位元，並標示該則訊息結束。呼叫 `finish()` 後，若再對同一個物件呼叫 `update()` 或 `finish()`，會拋出 `ValueError`；每則訊息各用一個 `Encoder` 或 `Decoder`。
 
@@ -123,7 +127,7 @@ cargo add fastbase91-core
 
 ### 會配置記憶體的 API
 
-預設的 `std` feature 會啟用 `alloc`。啟用 `std` 或 `alloc` 時，one-shot 呼叫會回傳 `Vec<u8>`：
+預設的 `std` feature 會啟用 `alloc`。啟用 `std` 或 `alloc` 時，一次性呼叫會回傳 `Vec<u8>`：
 
 ```rust
 use fastbase91_core::{decode, encode, DecodeOptions};
@@ -252,7 +256,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-範例中的 `Vec<u8>` 是 `std` sink；把 `extend_from_slice` 呼叫改成寫入自己的 sink，`update()` 迴圈就可用於 `no_std`。以 `max_encoded_len(CHUNK)` 與 `max_decoded_len(CHUNK)` 配置的 buffer，對任何串流狀態下、至多 `CHUNK` 位元組輸入的每次 `update()` 都足夠，所以範例不會收到 `OutputTooSmall`。若使用其他大小的 buffer，`update()` 可能回傳 `OutputTooSmall`；其 `required()` 方法會指出所需容量。這種情況下狀態與輸出都不變，可改用較大的 buffer 重試。
+範例中的 `Vec<u8>` 是 `std` sink；把 `extend_from_slice` 呼叫改成寫入自己的 sink，`update()` 迴圈就可用於 `no_std`。以 `max_encoded_len(CHUNK)` 與 `max_decoded_len(CHUNK)` 配置的 buffer，對任何串流狀態下、至多 `CHUNK` 位元組輸入的每次 `update()` 都足夠，所以範例不會收到 `OutputTooSmall`。若使用其他大小的 buffer，`update()` 可能回報 `OutputTooSmall`：encoder 直接回傳它，decoder 則包在 `DecodeError::OutputTooSmall` 裡。其 `required()` 方法會指出所需容量。這種情況下狀態與輸出都不變，可改用較大的 buffer 重試。
 
 嚴格模式的 `InvalidByte { offset, .. }` 所報的 `offset` 是這次傳給 `update()` 的區塊內位移，不是整個串流。Rust 不會累計該位移。該錯誤發生時 decoder 狀態不變，但該次呼叫已寫入 `output` 的內容未定，必須丟棄。
 
