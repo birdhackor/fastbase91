@@ -22,7 +22,7 @@ basE91 packs binary data into 91 printable ASCII characters, giving roughly
 - **Streaming** — incremental `Encoder`/`Decoder` for data that does not fit in
   memory at once.
 - **Free-threaded ready** — the Python extension declares `gil_used = false`
-  and ships free-threaded wheels (CPython 3.13t / 3.15t).
+  and ships free-threaded wheels (CPython 3.14t / 3.15t).
 - **One wheel per platform** — an abi3 wheel covers CPython 3.11+.
 
 ## Install

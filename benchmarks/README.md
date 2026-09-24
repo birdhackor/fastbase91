@@ -53,5 +53,5 @@ Reading these together: **pybase91 has the higher single-threaded throughput**,
 while **fastbase91 scales with threads** (it releases the GIL, so parallel calls
 overlap) and overtakes pybase91 once a couple of threads are in play. pybase91
 stays flat because it holds the GIL for the call; pure-Python is GIL-bound
-bytecode. fastbase91 also ships free-threaded (3.13t/3.15t) and Windows wheels,
+bytecode. fastbase91 also ships free-threaded (3.14t/3.15t) and Windows wheels,
 which pybase91 currently does not.
