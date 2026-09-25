@@ -2,7 +2,7 @@
 
 ## Python
 
-下列 Python API 是套件的型別 stub（`fastbase91/__init__.pyi`）原文。建置網站時，這個檔案會直接從原始碼樹嵌入，不另外手抄宣告。`ReadableBuffer` 只存在於 stub 中、供型別檢查器使用：它代表任何支援 buffer protocol 的物件（例如 `bytes`、`bytearray` 或 `memoryview`），執行期無法從 `fastbase91` 匯入。型別檢查器接受任何這類物件，但執行期其中一些會拋出 `BufferError`（見下表）。使用範例見[使用方式](usage.md)。
+`ReadableBuffer` 只供型別檢查器使用：它代表任何支援 buffer protocol 的物件（例如 `bytes`、`bytearray` 或 `memoryview`），執行期無法從 `fastbase91` 匯入。型別檢查器接受任何這類物件，但執行期其中一些會拋出 `BufferError`（見下表）。使用範例見[使用方式](usage.md)。
 
 ```python
 --8<-- "bindings/python/python/fastbase91/__init__.pyi"

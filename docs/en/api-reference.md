@@ -2,7 +2,7 @@
 
 ## Python
 
-The following Python API is the package's type stub (`fastbase91/__init__.pyi`) as written. The website build embeds this file directly from the source tree instead of copying its declarations by hand. `ReadableBuffer` exists only in the stub, for type checkers: it stands for any object that supports the buffer protocol (such as `bytes`, `bytearray` or `memoryview`) and cannot be imported from `fastbase91` at run time. Type checkers accept any such object, but at run time some of them raise `BufferError` (see the table below). See [Usage](usage.md) for examples.
+`ReadableBuffer` exists only for type checkers: it stands for any object that supports the buffer protocol (such as `bytes`, `bytearray` or `memoryview`) and cannot be imported from `fastbase91` at run time. Type checkers accept any such object, but at run time some of them raise `BufferError` (see the table below). See [Usage](usage.md) for examples.
 
 ```python
 --8<-- "bindings/python/python/fastbase91/__init__.pyi"
