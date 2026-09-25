@@ -8,7 +8,9 @@ Free-threaded CPython became available in 3.13 as an experimental build and has 
 
 Here is the catch. Compiled extensions (packages with a C or Rust part, like NumPy or this one) have to opt in to running without the GIL. If you import an extension that has **not** declared it is ready, CPython plays it safe and **turns the GIL back on for the entire process** — not just for that package — and prints a `RuntimeWarning`; the import does not fail, and the program continues. So a single dependency that has not caught up can put the Python code in your threads back to running one thread at a time.
 
-The warning is easy to miss — for example, when output is redirected or buried in logs. Your threads keep running and your results stay correct, but their Python code runs one thread at a time again. fastbase91 one-shot calls with input of at least 1,024 bytes release the GIL and can still overlap; smaller one-shot calls and all streaming `update()` and `finish()` calls take turns — see [When a call runs in parallel](#when-a-call-runs-in-parallel). `PYTHON_GIL=1` or `-X gil=1` can also re-enable the GIL; check `sys._is_gil_enabled()` to see its current state.
+The warning is easy to miss — for example, when output is redirected, buried in logs, or filtered out with `-W ignore` (with `-W error`, the warning becomes an exception and the import fails instead). Your threads keep running and your results stay correct, but their Python code runs one thread at a time again. fastbase91 one-shot calls with input of at least 1,024 bytes release the GIL and can still overlap; smaller one-shot calls and all streaming `update()` and `finish()` calls take turns — see [When a call runs in parallel](#when-a-call-runs-in-parallel).
+
+`PYTHON_GIL=1` or `-X gil=1` can also re-enable the GIL. The reverse override, `PYTHON_GIL=0` or `-X gil=0`, keeps the GIL off even when such an extension is imported: CPython then skips the fallback above without a warning, and that extension runs without the GIL at your own risk. Check `sys._is_gil_enabled()` to see the current state.
 
 ## Why fastbase91 is safe to import
 
