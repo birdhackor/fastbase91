@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - docs/**
+      - bindings/python/python/fastbase91/__init__.pyi
       - zensical.en.toml
       - zensical.zh-Hant.toml
       - .github/workflows/docs.yml

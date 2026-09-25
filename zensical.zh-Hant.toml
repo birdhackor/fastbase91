@@ -9,6 +9,7 @@ nav = [
   { "總覽" = "index.md" },
   { "使用方式" = "usage.md" },
   { "安裝與相容性" = "installation.md" },
+  { "API 參考" = "api-reference.md" },
   { "自由執行緒" = "free-threading.md" },
   { "效能測試" = "benchmarks.md" },
   { "變更紀錄" = "changelog.md" },
@@ -49,3 +50,4 @@ alternate = [
 admonition = {}
 pymdownx.superfences = {}
 pymdownx.highlight = { anchor_linenums = true }
+pymdownx.snippets = { base_path = ["."], check_paths = true }

@@ -9,6 +9,7 @@ nav = [
   { "Overview" = "index.md" },
   { "Usage" = "usage.md" },
   { "Installation & compatibility" = "installation.md" },
+  { "API reference" = "api-reference.md" },
   { "Free-threading" = "free-threading.md" },
   { "Benchmarks" = "benchmarks.md" },
   { "Changelog" = "changelog.md" },
@@ -49,3 +50,4 @@ alternate = [
 admonition = {}
 pymdownx.superfences = {}
 pymdownx.highlight = { anchor_linenums = true }
+pymdownx.snippets = { base_path = ["."], check_paths = true }
