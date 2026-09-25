@@ -2,7 +2,7 @@
 
 ## Python
 
-The following Python API is the package's type stub (`fastbase91/__init__.pyi`) as written. The website build embeds this file directly from the source tree instead of copying its declarations by hand. See [Usage](usage.md) for examples.
+The following Python API is the package's type stub (`fastbase91/__init__.pyi`) as written. The website build embeds this file directly from the source tree instead of copying its declarations by hand. `ReadableBuffer` exists only in the stub, for type checkers: it stands for any object that supports the buffer protocol (such as `bytes`, `bytearray` or `memoryview`) and cannot be imported from `fastbase91` at run time. See [Usage](usage.md) for examples.
 
 ```python
 --8<-- "bindings/python/python/fastbase91/__init__.pyi"
@@ -31,6 +31,6 @@ The complete Rust API reference is generated from the source and published on [d
 | `EncodeError::AllocationFailed` | `encode()` with `alloc` | Reported by the one-shot allocation path. |
 | `DecodeError::OutputTooSmall` | `decode_into`, `Decoder::update` | Capacity is checked first, so state and output are unchanged. |
 | `DecodeError::InvalidByte { byte, offset }` | `decode`, `decode_into`, `Decoder::update` in strict mode | The decoder state is unchanged; discard output written by the failed call. In `Decoder::update`, `offset` is within that chunk, while in one-shot `decode` and `decode_into` it is within the complete input. |
-| `DecodeError::AllocationFailed` | `decode()` | Reported by the one-shot allocation path. |
+| `DecodeError::AllocationFailed` | `decode()` with `alloc` | Reported by the one-shot allocation path. |
 
-`encode()` returns `EncodeError`; because it allocates the exact output size, only `AllocationFailed` is expected in practice. `Encoder::finish` returns `([u8; 2], usize)` and does not fail. `Decoder::finish` returns `Result<Option<u8>, DecodeError>`.
+Both `AllocationFailed` variants exist only with the `alloc` feature, which the default `std` feature enables. `encode()` returns `EncodeError`; because it reserves enough capacity up front (the `max_encoded_len` bound), only `AllocationFailed` is expected in practice. `Encoder::finish` returns `([u8; 2], usize)` and does not fail. `Decoder::finish` returns `Result<Option<u8>, DecodeError>`.
