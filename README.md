@@ -25,7 +25,8 @@ basE91 packs binary data into 91 printable ASCII characters, giving roughly
 - **Free-threaded ready** — the Python extension declares `gil_used = false`
   and ships free-threaded wheels (CPython 3.14t / 3.15t).
 - **Stable-ABI wheels** — one abi3 wheel per platform covers GIL-enabled
-  CPython 3.11+; free-threaded interpreters get their own wheels.
+  CPython 3.11+; free-threaded 3.14 has its own wheel, and CPython 3.15+
+  (regular or free-threaded) can use a combined `abi3`/`abi3t` wheel.
 
 ## Install
 

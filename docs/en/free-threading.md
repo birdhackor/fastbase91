@@ -22,12 +22,12 @@ A continuous-integration job proves this on every change: on a free-threaded int
 
 ## The wheels we publish
 
-Alongside the regular abi3 wheel (which covers CPython 3.11 and up), we ship dedicated free-threaded wheels for Linux x86_64, macOS arm64 (Apple silicon), and Windows x86_64; see [Installation & compatibility](installation.md) for the full platform table:
+Alongside the regular abi3 wheel (which covers CPython 3.11 and up), we ship wheels for free-threaded interpreters for Linux x86_64, macOS arm64 (Apple silicon), and Windows x86_64; see [Installation & compatibility](installation.md) for the full platform table:
 
 | Wheel | For |
 | --- | --- |
 | `cp314-cp314t` | free-threaded CPython 3.14 (the "3.14t" build) |
-| `cp315` + `abi3t` ABI | free-threaded CPython 3.15t and later |
+| `cp315` + `abi3t` ABI | free-threaded CPython 3.15t and later (it also carries the `abi3` tag, so regular CPython 3.15 and later can install it too) |
 
 Both are on PyPI as of 0.1.1. `pip install fastbase91` picks the right one for your interpreter automatically.
 

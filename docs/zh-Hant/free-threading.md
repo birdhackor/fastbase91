@@ -22,12 +22,12 @@ Python binding 標記了 `#[pymodule(gil_used = false)]`——這是 Rust 原始
 
 ## 我們發行的 wheel
 
-除了常規的 abi3 wheel（涵蓋 CPython 3.11 以上），我們也為 Linux x86_64、macOS arm64（Apple silicon）與 Windows x86_64 發行專用的自由執行緒 wheel；完整平台表見[安裝與相容性](installation.md)：
+除了常規的 abi3 wheel（涵蓋 CPython 3.11 以上），我們也為 Linux x86_64、macOS arm64（Apple silicon）與 Windows x86_64 發行給自由執行緒直譯器用的 wheel；完整平台表見[安裝與相容性](installation.md)：
 
 | Wheel | 適用於 |
 | --- | --- |
 | `cp314-cp314t` | 自由執行緒 CPython 3.14（也就是「3.14t」版本） |
-| `cp315` ＋ `abi3t` ABI | 自由執行緒 CPython 3.15t 及後續版本 |
+| `cp315` ＋ `abi3t` ABI | 自由執行緒 CPython 3.15t 及後續版本（它也帶 `abi3` 標籤，所以一般 CPython 3.15 以上也能安裝） |
 
 兩者在 0.1.1 都已上架 PyPI。`pip install fastbase91` 會自動依你的直譯器挑對的那顆。
 
