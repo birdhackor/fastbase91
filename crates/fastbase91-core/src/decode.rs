@@ -325,6 +325,16 @@ const fn one_shot_capacity(input_len: usize) -> usize {
 }
 
 #[cfg(feature = "alloc")]
+/// Decodes standard basE91 from `input` into a newly allocated byte vector.
+///
+/// This function is available when the `alloc` feature is enabled.
+///
+/// # Errors
+///
+/// Returns [`DecodeError::InvalidByte`] when strict decoding is enabled and
+/// `input` contains a byte outside the basE91 alphabet. Returns
+/// [`DecodeError::AllocationFailed`] if the output-length upper bound does not
+/// fit in `usize`, exceeds `isize::MAX`, or allocation fails.
 pub fn decode(input: &[u8], options: DecodeOptions) -> Result<alloc::vec::Vec<u8>, DecodeError> {
     let capacity = max_decoded_len(input.len()).ok_or(DecodeError::AllocationFailed)?;
     if capacity > isize::MAX as usize {

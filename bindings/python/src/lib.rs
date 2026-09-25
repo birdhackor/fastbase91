@@ -14,7 +14,7 @@ pyo3::create_exception!(
     fastbase91._fastbase91,
     DecodeError,
     PyValueError,
-    "A byte outside the basE91 alphabet was encountered while decoding."
+    "A ``ValueError`` subclass raised in strict mode for a byte outside the basE91 alphabet.\n\n``offset`` is the byte's 0-based position; for :class:`Decoder`, it is measured from the start of the whole stream. ``byte`` is the byte's value."
 );
 
 fn memory_error() -> PyErr {
@@ -205,7 +205,7 @@ fn should_detach(len: usize) -> bool {
     len >= min_detach_len()
 }
 
-/// Encode a bytes-like object and return `bytes`.
+/// Encode a bytes-like object as basE91 and return ``bytes``.
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
 #[pyfunction]
@@ -221,7 +221,9 @@ fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, 
     to_py_bytes(py, &output)
 }
 
-/// Decode a bytes-like object and return `bytes`.
+/// Decode basE91 from a bytes-like object and return ``bytes``.
+///
+/// Bytes outside the basE91 alphabet are ignored by default; in ``strict=True`` mode, the first such byte raises :class:`DecodeError`.
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
 #[pyfunction]
@@ -243,6 +245,9 @@ fn decode<'py>(
     to_py_bytes(py, &output)
 }
 
+/// Incrementally encode bytes-like input as basE91.
+///
+/// Call ``update()`` for each input chunk, then call ``finish()`` once at the end of the message.
 #[pyclass(module = "fastbase91._fastbase91")]
 struct Encoder {
     inner: Option<CoreEncoder>,
@@ -282,6 +287,9 @@ impl Encoder {
         Ok(bytes)
     }
 
+    /// Return the message's final output as ``bytes`` and close this encoder.
+    ///
+    /// Later calls to ``update()`` or ``finish()`` raise ``ValueError``.
     fn finish<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let inner = self
             .inner
@@ -292,6 +300,9 @@ impl Encoder {
     }
 }
 
+/// Incrementally decode basE91 input.
+///
+/// Bytes outside the basE91 alphabet are ignored by default; in ``strict=True`` mode, the first such byte raises :class:`DecodeError`.
 #[pyclass(module = "fastbase91._fastbase91")]
 struct Decoder {
     inner: Option<CoreDecoder>,
@@ -312,6 +323,8 @@ impl Decoder {
     }
 
     /// Decode the next bytes-like input chunk and return the available output.
+    ///
+    /// When strict mode rejects a byte, the call produces no output and leaves the decoder state unchanged.
     ///
     /// The caller must not mutate a writable input buffer concurrently during this call.
     #[pyo3(signature = (data, /))]
@@ -337,6 +350,9 @@ impl Decoder {
         Ok(bytes)
     }
 
+    /// Return the final decoded byte, if any, as ``bytes`` and close this decoder.
+    ///
+    /// Later calls to ``update()`` or ``finish()`` raise ``ValueError``.
     fn finish<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         let inner = self
             .inner

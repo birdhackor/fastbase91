@@ -200,6 +200,14 @@ impl Encoder {
 }
 
 #[cfg(feature = "alloc")]
+/// Encodes `input` as standard basE91 into a newly allocated byte vector.
+///
+/// This function is available when the `alloc` feature is enabled.
+///
+/// # Errors
+///
+/// Returns [`EncodeError::AllocationFailed`] if the output-length upper bound
+/// does not fit in `usize`, exceeds `isize::MAX`, or allocation fails.
 pub fn encode(input: &[u8]) -> Result<alloc::vec::Vec<u8>, EncodeError> {
     let capacity = max_encoded_len(input.len()).ok_or(EncodeError::AllocationFailed)?;
     if capacity > isize::MAX as usize {

@@ -1,9 +1,12 @@
+import ast
+import inspect
 import random
 import re
 import sys
 import sysconfig
 from array import array
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import pytest
 
@@ -63,6 +66,59 @@ def test_lenient_whitespace_and_strict_structured_error():
 def test_decode_error_is_a_value_error_subclass():
     assert issubclass(DecodeError, ValueError)
     assert "DecodeError" in fastbase91.__all__
+
+
+def test_stub_docstrings_match_runtime_docstrings():
+    stub_path = (
+        Path(__file__).resolve().parents[1] / "python/fastbase91/__init__.pyi"
+    )
+    stub = ast.parse(stub_path.read_text(encoding="utf-8"), filename=str(stub_path))
+    members = {}
+    for node in stub.body:
+        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
+            members[node.name] = node
+        elif (
+            isinstance(node, ast.ClassDef)
+            and not node.name.startswith("_")
+            and node.name != "ReadableBuffer"
+        ):
+            members[node.name] = node
+            for child in node.body:
+                if (
+                    isinstance(child, ast.FunctionDef)
+                    and not child.name.startswith("_")
+                    and child.name != "__init__"
+                ):
+                    members[f"{node.name}.{child.name}"] = child
+
+    assert members, f"no public API members found in {stub_path}"
+
+    runtime_docs = {}
+    for name in members:
+        runtime_object = fastbase91
+        try:
+            for component in name.split("."):
+                runtime_object = getattr(runtime_object, component)
+        except AttributeError as error:
+            runtime_docs[name] = f"<missing: {error}>"
+        else:
+            runtime_doc = runtime_object.__doc__
+            runtime_docs[name] = (
+                inspect.cleandoc(runtime_doc) if runtime_doc is not None else None
+            )
+
+    stub_docs = {name: ast.get_docstring(node) for name, node in members.items()}
+    for name, stub_doc in stub_docs.items():
+        assert stub_doc is not None, (
+            f"{name} docstring mismatch: "
+            f"runtime={runtime_docs[name]!r}, stub={stub_doc!r}"
+        )
+
+    for name, stub_doc in stub_docs.items():
+        assert runtime_docs[name] == stub_doc, (
+            f"{name} docstring mismatch: "
+            f"runtime={runtime_docs[name]!r}, stub={stub_doc!r}"
+        )
 
 
 def test_data_parameters_are_positional_only():

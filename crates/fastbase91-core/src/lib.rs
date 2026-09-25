@@ -1,6 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
+//! A safe encoder and decoder for the standard basE91 binary-to-text encoding.
+//!
+//! The crate provides allocating one-shot `encode` and `decode` APIs when the
+//! `alloc` feature is enabled, caller-provided-buffer APIs through
+//! [`encode_into`] and [`decode_into`], and streaming APIs through [`Encoder`]
+//! and [`Decoder`]. The default `std` feature includes `alloc`; with both
+//! features disabled, the crate supports `no_std` use without an allocator.
+//! Lenient or strict decoding is selected with [`DecodeOptions`].
+
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
