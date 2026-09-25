@@ -37,4 +37,4 @@ fastbase91 implements standard [basE91](https://base91.sourceforge.net/). Its ou
 - **Safety.** The Rust core is `#![forbid(unsafe_code)]` — the compiler rejects any unsafe block.
 - **Control.** Both APIs can stream (encode/decode in chunks), and decoding can reject anything outside the basE91 alphabet instead of silently skipping it.
 
-Next: the full API in [Usage](usage.md).
+Next: examples and explanations are in [Usage](usage.md); the full API is in [API reference](api-reference.md).

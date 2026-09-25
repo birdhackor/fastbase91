@@ -37,4 +37,4 @@ fastbase91 實作的是標準 [basE91](https://base91.sourceforge.net/)。它的
 - **安全性。** Rust core 是 `#![forbid(unsafe_code)]`——編譯器直接拒絕任何 unsafe 區塊。
 - **控制力。** 兩種 API 都能串流（分段編解碼），而且解碼時可以拒絕 basE91 字母表以外的位元組，而不是默默略過。
 
-接著看：[使用方式](usage.md)裡的完整 API。
+接著看：[使用方式](usage.md)裡的範例與說明，以及[API 參考](api-reference.md)裡的完整 API。

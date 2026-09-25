@@ -15,15 +15,17 @@ basE91 packs binary data into 91 printable ASCII characters, giving roughly
 
 ## Features
 
-- **Fast** — a tight Rust core; the Python binding releases the GIL on larger
-  inputs so calls can overlap.
+- **Fast** — a tight Rust core; on GIL-enabled CPython, one-shot
+  `encode()`/`decode()` calls with inputs of at least 1 KiB release the GIL so
+  calls can overlap.
 - **Safe** — `#![forbid(unsafe_code)]` throughout the core.
 - **Portable** — `no_std` core (optional `alloc`/`std`); runs on bare metal.
 - **Streaming** — incremental `Encoder`/`Decoder` for data that does not fit in
   memory at once.
 - **Free-threaded ready** — the Python extension declares `gil_used = false`
   and ships free-threaded wheels (CPython 3.14t / 3.15t).
-- **One wheel per platform** — an abi3 wheel covers CPython 3.11+.
+- **Stable-ABI wheels** — one abi3 wheel per platform covers GIL-enabled
+  CPython 3.11+; free-threaded interpreters get their own wheels.
 
 ## Install
 
@@ -62,8 +64,9 @@ assert fastbase91.decode(encoded) == b"hello"
 
 ## Documentation
 
-Full documentation (English / 正體中文), including usage, the free-threading
-support matrix, benchmarks, and a changelog:
+Full documentation (English / 正體中文), including usage, installation and
+platform compatibility, API reference, free-threading, benchmarks, and a
+changelog:
 **https://birdhackor.github.io/fastbase91/**
 
 ## Versioning

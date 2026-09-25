@@ -8,6 +8,8 @@ Install the extension from PyPI:
 python -m pip install fastbase91
 ```
 
+See [Installation & compatibility](installation.md) for supported platforms, Python versions, and what to do without a pre-built wheel.
+
 ### One-shot encoding and decoding
 
 ```python
@@ -109,6 +111,8 @@ assert decoded == b"hello"
 
 Unsupported buffer layouts (for example non-contiguous or multi-dimensional), or buffers whose items are not single bytes, raise `BufferError`. Calls after `finish()` raise `ValueError`, and passing `str` raises `TypeError`.
 
+See [API reference](api-reference.md) for documented exceptions and when each occurs.
+
 ### Choosing one-shot or streaming
 
 Use one-shot `encode()` or `decode()` when the data fits in memory; use streaming when it does not or when data arrives in chunks.
@@ -126,6 +130,8 @@ Add the core crate:
 ```console
 cargo add fastbase91-core
 ```
+
+See the complete Rust API documentation at [docs.rs](https://docs.rs/fastbase91-core); see [Installation & compatibility](installation.md) for features and the minimum Rust version.
 
 ### Allocating APIs
 

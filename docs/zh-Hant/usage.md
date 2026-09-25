@@ -8,6 +8,8 @@
 python -m pip install fastbase91
 ```
 
+支援的平台、Python 版本，以及沒有預先建好 wheel 時的處理方式，見[安裝與相容性](installation.md)。
+
 ### 一次性編解碼
 
 ```python
@@ -109,6 +111,8 @@ assert decoded == b"hello"
 
 不支援的 buffer 形式（例如非連續或多維），或元素不是單一位元組的 buffer，會拋出 `BufferError`。`finish()` 後的呼叫會拋出 `ValueError`，傳入 `str` 則會拋出 `TypeError`。
 
+文件列出的例外及其發生時機見[API 參考](api-reference.md)。
+
 ### 選擇一次性或串流
 
 資料放得進記憶體時，使用一次性 `encode()` 或 `decode()`；資料放不進去或分段抵達時，使用串流。
@@ -126,6 +130,8 @@ assert decoded == b"hello"
 ```console
 cargo add fastbase91-core
 ```
+
+完整的 Rust API 文件在 [docs.rs](https://docs.rs/fastbase91-core)；features 與最低 Rust 版本見[安裝與相容性](installation.md)。
 
 ### 會配置記憶體的 API
 
