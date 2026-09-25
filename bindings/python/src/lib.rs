@@ -205,7 +205,7 @@ fn should_detach(len: usize) -> bool {
     len >= min_detach_len()
 }
 
-/// Encode a bytes-like object as basE91 and return ``bytes``.
+/// Encode ``data`` as basE91 and return ``bytes``.
 ///
 /// The caller must not mutate a writable input buffer concurrently during this call.
 #[pyfunction]
@@ -221,7 +221,7 @@ fn encode<'py>(py: Python<'py>, data: &Bound<'_, PyAny>) -> PyResult<Bound<'py, 
     to_py_bytes(py, &output)
 }
 
-/// Decode basE91 from a bytes-like object and return ``bytes``.
+/// Decode basE91 ``data`` and return ``bytes``.
 ///
 /// Bytes outside the basE91 alphabet are ignored by default; in ``strict=True`` mode, the first such byte raises :class:`DecodeError`.
 ///
@@ -245,7 +245,7 @@ fn decode<'py>(
     to_py_bytes(py, &output)
 }
 
-/// Incrementally encode bytes-like input as basE91.
+/// Incrementally encode input as basE91.
 ///
 /// Call ``update()`` for each input chunk, then call ``finish()`` once at the end of the message.
 #[pyclass(module = "fastbase91._fastbase91")]
@@ -262,7 +262,7 @@ impl Encoder {
         }
     }
 
-    /// Encode the next bytes-like input chunk and return the available output.
+    /// Encode the next input chunk and return the available output.
     ///
     /// The caller must not mutate a writable input buffer concurrently during this call.
     #[pyo3(signature = (data, /))]
@@ -322,7 +322,7 @@ impl Decoder {
         }
     }
 
-    /// Decode the next bytes-like input chunk and return the available output.
+    /// Decode the next input chunk and return the available output.
     ///
     /// When strict mode rejects a byte, the call produces no output and leaves the decoder state unchanged.
     ///

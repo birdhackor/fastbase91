@@ -22,11 +22,11 @@ assert encoded == b"TPwJh>A"
 assert decoded == b"hello"
 ```
 
-`encode(data)` and `decode(data, *, strict=False)` return `bytes`. Their input may be `bytes`, `bytearray`, or another compatible contiguous, one-dimensional byte buffer such as `memoryview`.
+`encode(data)` and `decode(data, *, strict=False)` return `bytes`. Their input may be `bytes` or another object that supports the buffer protocol, such as `bytearray`, `memoryview`, `array.array` or `mmap.mmap`. Such a buffer must be one-dimensional and contiguous, and its format must be exactly `B` or `b` (unsigned or signed bytes); otherwise the call raises `BufferError`. A ctypes array, for example, raises `BufferError`; pass `bytes(obj)` instead.
 
 ### Bytes, text, and line breaks
 
-`encode()` returns `bytes` containing only printable ASCII bytes from the basE91 alphabet. To use encoded data as `str`, call `.decode("ascii")`. `decode()` accepts bytes-like objects, not `str`; encode text with `.encode("ascii")` first.
+`encode()` returns `bytes` containing only printable ASCII bytes from the basE91 alphabet. To use encoded data as `str`, call `.decode("ascii")`. `decode()` does not accept `str`; encode text with `.encode("ascii")` first.
 
 ```python
 text = fastbase91.encode(b"hello").decode("ascii")
@@ -35,6 +35,8 @@ assert fastbase91.decode(text.encode("ascii")) == b"hello"
 ```
 
 The encoder does not insert line breaks. If a channel needs line-wrapped data, you must add the breaks yourself; lenient decoding skips them and strict decoding rejects them.
+
+The alphabet includes characters that have special meaning in URLs, HTML, JSON strings or shell commands, such as `"`, `&`, `<`, `>`, `%`, `+` and `$`. When you put encoded text into one of those places, escape or quote it as that place requires, as you would any other text.
 
 ### Lenient and strict decoding
 
@@ -109,7 +111,7 @@ decoded += decoder.finish()
 assert decoded == b"hello"
 ```
 
-Unsupported buffer layouts (for example non-contiguous or multi-dimensional), or buffers whose items are not single bytes, raise `BufferError`. Calls after `finish()` raise `ValueError`, and passing `str` raises `TypeError`.
+A buffer that is not one-dimensional and contiguous, or whose format is not exactly `B` or `b`, raises `BufferError`. Calls after `finish()` raise `ValueError`, and passing `str` raises `TypeError`.
 
 See [API reference](api-reference.md) for documented exceptions and when each occurs.
 

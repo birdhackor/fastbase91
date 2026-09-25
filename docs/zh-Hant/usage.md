@@ -22,11 +22,11 @@ assert encoded == b"TPwJh>A"
 assert decoded == b"hello"
 ```
 
-`encode(data)` 與 `decode(data, *, strict=False)` 都回傳 `bytes`。輸入可以是 `bytes`、`bytearray`，或其他相容的連續一維位元組 buffer，例如 `memoryview`。
+`encode(data)` 與 `decode(data, *, strict=False)` 都回傳 `bytes`。輸入可以是 `bytes`，或其他支援 buffer protocol 的物件，例如 `bytearray`、`memoryview`、`array.array` 或 `mmap.mmap`。這類 buffer 必須是一維且連續，格式也必須恰好是 `B` 或 `b`（無號或有號位元組），否則呼叫會拋出 `BufferError`。例如 ctypes 陣列就會拋出 `BufferError`；請改傳 `bytes(obj)`。
 
 ### 位元組、文字與換行
 
-`encode()` 回傳的 `bytes` 只含 basE91 字母表裡的可列印 ASCII 位元組。若要將編碼資料當成 `str` 使用，呼叫 `.decode("ascii")`。`decode()` 接受 bytes-like 物件，不接受 `str`；請先用 `.encode("ascii")` 把文字轉成位元組。
+`encode()` 回傳的 `bytes` 只含 basE91 字母表裡的可列印 ASCII 位元組。若要將編碼資料當成 `str` 使用，呼叫 `.decode("ascii")`。`decode()` 不接受 `str`；請先用 `.encode("ascii")` 把文字轉成位元組。
 
 ```python
 text = fastbase91.encode(b"hello").decode("ascii")
@@ -35,6 +35,8 @@ assert fastbase91.decode(text.encode("ascii")) == b"hello"
 ```
 
 Encoder 不會插入換行。通道若需要分行，需要由你自行加入換行；寬鬆解碼會略過換行，嚴格解碼則會拒絕換行。
+
+字母表含有在 URL、HTML、JSON 字串或 shell 指令中有特殊意義的字元，例如 `"`、`&`、`<`、`>`、`%`、`+` 與 `$`。把編碼後的文字放進這些地方時，請像處理其他文字一樣，依該處的規則跳脫或加上引號。
 
 ### 寬鬆與嚴格解碼
 
@@ -109,7 +111,7 @@ decoded += decoder.finish()
 assert decoded == b"hello"
 ```
 
-不支援的 buffer 形式（例如非連續或多維），或元素不是單一位元組的 buffer，會拋出 `BufferError`。`finish()` 後的呼叫會拋出 `ValueError`，傳入 `str` 則會拋出 `TypeError`。
+不是一維且連續的 buffer，或格式不是恰好 `B` 或 `b` 的 buffer，會拋出 `BufferError`。`finish()` 後的呼叫會拋出 `ValueError`，傳入 `str` 則會拋出 `TypeError`。
 
 文件列出的例外及其發生時機見[API 參考](api-reference.md)。
 

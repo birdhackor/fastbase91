@@ -18,7 +18,7 @@ python -m pip install fastbase91
 | macOS arm64（Apple silicon、macOS 11 以上） | ✓ | ✓ | ✓ |
 | Windows x86_64 | ✓ | ✓ | ✓ |
 
-一般 CPython 使用 abi3 wheel；一顆 wheel 涵蓋 3.11 之後的所有版本，`pip` 會自動挑選相符的 wheel。
+一般 CPython 使用 abi3 wheel；一個 wheel 涵蓋 3.11 之後的所有版本，`pip` 會自動挑選相符的 wheel。
 
 ### 其他平台
 
@@ -64,7 +64,7 @@ cargo add fastbase91-core
 
 最低支援的 Rust 版本是 1.81。
 
-### Features
+### Feature 設定
 
 | Feature 設定 | 可用 API |
 | --- | --- |

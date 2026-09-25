@@ -19,14 +19,14 @@ class DecodeError(ValueError):
 
 
 def encode(data: ReadableBuffer, /) -> bytes:
-    """Encode a bytes-like object as basE91 and return ``bytes``.
+    """Encode ``data`` as basE91 and return ``bytes``.
 
     The caller must not mutate a writable input buffer concurrently during this call.
     """
 
 
 def decode(data: ReadableBuffer, /, *, strict: bool = False) -> bytes:
-    """Decode basE91 from a bytes-like object and return ``bytes``.
+    """Decode basE91 ``data`` and return ``bytes``.
 
     Bytes outside the basE91 alphabet are ignored by default; in ``strict=True`` mode, the first such byte raises :class:`DecodeError`.
 
@@ -35,7 +35,7 @@ def decode(data: ReadableBuffer, /, *, strict: bool = False) -> bytes:
 
 
 class Encoder:
-    """Incrementally encode bytes-like input as basE91.
+    """Incrementally encode input as basE91.
 
     Call ``update()`` for each input chunk, then call ``finish()`` once at the end of the message.
     """
@@ -43,7 +43,7 @@ class Encoder:
     def __init__(self) -> None: ...
 
     def update(self, data: ReadableBuffer, /) -> bytes:
-        """Encode the next bytes-like input chunk and return the available output.
+        """Encode the next input chunk and return the available output.
 
         The caller must not mutate a writable input buffer concurrently during this call.
         """
@@ -64,7 +64,7 @@ class Decoder:
     def __init__(self, *, strict: bool = False) -> None: ...
 
     def update(self, data: ReadableBuffer, /) -> bytes:
-        """Decode the next bytes-like input chunk and return the available output.
+        """Decode the next input chunk and return the available output.
 
         When strict mode rejects a byte, the call produces no output and leaves the decoder state unchanged.
 

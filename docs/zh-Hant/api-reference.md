@@ -2,7 +2,7 @@
 
 ## Python
 
-下列 Python API 是套件的型別 stub（`fastbase91/__init__.pyi`）原文。建置網站時，這個檔案會直接從原始碼樹嵌入，不另外手抄宣告。`ReadableBuffer` 只存在於 stub 中、供型別檢查器使用：它代表任何支援 buffer protocol 的物件（例如 `bytes`、`bytearray` 或 `memoryview`），執行期無法從 `fastbase91` 匯入。使用範例見[使用方式](usage.md)。
+下列 Python API 是套件的型別 stub（`fastbase91/__init__.pyi`）原文。建置網站時，這個檔案會直接從原始碼樹嵌入，不另外手抄宣告。`ReadableBuffer` 只存在於 stub 中、供型別檢查器使用：它代表任何支援 buffer protocol 的物件（例如 `bytes`、`bytearray` 或 `memoryview`），執行期無法從 `fastbase91` 匯入。型別檢查器接受任何這類物件，但執行期其中一些會拋出 `BufferError`（見下表）。使用範例見[使用方式](usage.md)。
 
 ```python
 --8<-- "bindings/python/python/fastbase91/__init__.pyi"
@@ -14,7 +14,7 @@
 | --- | --- |
 | `DecodeError` | 只有在嚴格模式下，解碼遇到 basE91 字母表以外的位元組時發生。它是 `ValueError` 的子類別；`offset` 與 `byte` 屬性會指出該無效位元組。對一次性 `decode` 而言，`offset` 是輸入內的位置；對 `Decoder(strict=True).update()` 而言，`offset` 包含先前更新已消耗的位元組，是整個串流中的位置。 |
 | `TypeError` | `encode`、`decode` 或 `update()` 收到不支援 buffer protocol 的物件，例如 `str`。 |
-| `BufferError` | buffer 不是連續的一維 buffer，或其中的元素不是單一有號或無號位元組。 |
+| `BufferError` | buffer 不是一維且連續，或格式不是恰好 `B` 或 `b`（無號或有號位元組）。例如 ctypes 陣列就會拋出它；請改傳 `bytes(obj)`。 |
 | `ValueError` | `finish()` 關閉 `Encoder` 或 `Decoder` 後，再對該物件呼叫 `update()` 或 `finish()` 時發生 `ValueError`。 |
 | `MemoryError` | 無法配置輸入或輸出 buffer，或 Rust core 回報 `AllocationFailed`。 |
 | `RuntimeError` | Rust core 回報不應發生的內部錯誤；或者同一個 `Encoder` 或 `Decoder` 物件被兩條執行緒同時使用而發生借用衝突，後者可能拋出 `RuntimeError`。見[自由執行緒](free-threading.md)。 |
