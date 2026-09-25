@@ -30,7 +30,7 @@
 | `OutputTooSmall` | `encode_into`、`Encoder::update` | 所需大小可由 `required()` 取得。容量會先檢查，因此狀態與輸出都不變。 |
 | `EncodeError::AllocationFailed` | 啟用 `alloc` 的 `encode()` | 由一次性配置路徑回報。 |
 | `DecodeError::OutputTooSmall` | `decode_into`、`Decoder::update` | 容量會先檢查，因此狀態與輸出都不變。 |
-| `DecodeError::InvalidByte { byte, offset }` | 嚴格模式下的 `decode`、`decode_into`、`Decoder::update` | 解碼器狀態不變；失敗呼叫寫入的輸出必須丟棄。對 `Decoder::update` 而言，`offset` 是該區塊內的位置；對一次性 `decode` 與 `decode_into` 而言，是完整輸入內的位置。 |
+| `DecodeError::InvalidByte { byte, offset }` | 嚴格模式下的 `decode`（需要 `alloc`）、`decode_into`、`Decoder::update` | 解碼器狀態不變；失敗呼叫寫入的輸出必須丟棄。對 `Decoder::update` 而言，`offset` 是該區塊內的位置；對一次性 `decode` 與 `decode_into` 而言，是完整輸入內的位置。 |
 | `DecodeError::AllocationFailed` | 啟用 `alloc` 的 `decode()` | 由一次性配置路徑回報。 |
 
-兩個 `AllocationFailed` variant 都只在啟用 `alloc` feature 時存在；預設的 `std` feature 會啟用它。`encode()` 回傳 `EncodeError`；由於它事先依 `max_encoded_len` 的上界預留足夠容量，實務上只會遇到 `AllocationFailed`。`Encoder::finish` 回傳 `([u8; 2], usize)`，不會失敗。`Decoder::finish` 回傳 `Result<Option<u8>, DecodeError>`。
+一次性的 `encode()`、`decode()` 函式與兩個 `AllocationFailed` variant 都只在啟用 `alloc` feature 時存在；預設的 `std` feature 會啟用它。`encode()` 回傳 `EncodeError`；由於它事先依 `max_encoded_len` 的上界預留足夠容量，實務上只會遇到 `AllocationFailed`。`Encoder::finish` 回傳 `([u8; 2], usize)`，不會失敗。`Decoder::finish` 回傳 `Result<Option<u8>, DecodeError>`。
