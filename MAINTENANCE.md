@@ -134,15 +134,28 @@ core 與 Python 是獨立發布線，不構成跨網站交易：一條線成功�
 
 ## Weekly canary 與 dead-man's switch
 
-`.github/workflows/canary.yml` 每週三 04:23 UTC 跑兩條路：以 `3.16-dev`
-安裝已發布的 binary wheel，以及 `cargo update` 與允許範圍內最新 maturin
-重建、安裝、執行測試。GitHub 的 scheduled workflows 只在 default branch
-執行，且 public repository 長期無活動可能被停用，因此它不是唯一監測機制。
+`.github/workflows/canary.yml` 每週三 04:23 UTC 跑兩條路。GitHub 的 scheduled
+workflows 只在 default branch 執行，且 public repository 長期無活動可能被停用，
+因此它不是唯一監測機制。
+
+- 已發布 wheel 在最新 CPython 上執行：`.github/scripts/pick-canary-python.py`
+  從 setup-python 的 versions manifest 挑出這台 runner 可安裝、且為 beta 以上
+  （beta、rc 或正式版）的最新 CPython，以它安裝已發布的 binary wheel 並做
+  smoke test。因此一年中大部分時間測的是最新正式版，下一版出 beta 後才換過去。
+  刻意不測 alpha：alpha 期間功能仍可能增刪，失敗多半只能等下一版，而任何
+  canary 失敗都會擋住下面的 ping。從 beta 開始測，是因為 CPython 在 beta 期間
+  請第三方專案測試並回報；到 rc 時 ABI 已凍結，這時才發現的問題多半會照樣
+  進正式版。
+- 更新相依後重建：`cargo update` 並用允許範圍內最新的 maturin 重建、安裝、
+  執行測試。Python 固定為 3.11，與發版建置 `abi3-py311` wheel 的 Python 版本
+  相同，失敗時就能排除 Python 這個變因；日後調高這個 abi3 最低版本時要一起改。
 
 兩條 canary 都成功後，`ping-dead-mans-switch` 才會 POST 到 secret
 `HEALTHCHECKS_PING_URL`（例如 healthchecks.io 的唯一 ping URL）。P11 要把
 該 endpoint 的預期週期設為大於一週並啟用逾期通知；任何 canary 失敗、排程
-被停用或未執行都不會 ping，外部服務因此會告警。
+被停用或未執行都不會 ping，外部服務因此會告警。但以 healthchecks.io 為例，
+check 在收到第一次 ping 前停在 New 狀態、不會告警，所以設定或更換 endpoint
+後，要用 `workflow_dispatch` 手動跑一次 canary 並確認成功。
 
 ## P11 上線待辦
 

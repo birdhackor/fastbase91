@@ -10,14 +10,34 @@ permissions:
   contents: read
 
 jobs:
-  published-wheel-on-prerelease-python:
-    name: run published wheel on CPython pre-release
+  published-wheel-on-newest-python:
+    name: run published wheel on newest CPython (beta or later)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+      - id: pick-python
+        name: Pick the newest beta-or-later CPython for this runner
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          manifest="$RUNNER_TEMP/versions-manifest.json"
+          curl --fail --silent --show-error --location --retry 3 --max-time 30 \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github.raw+json" \
+            --output "$manifest" \
+            "https://api.github.com/repos/actions/python-versions/contents/versions-manifest.json?ref=main"
+          version="$(python3 .github/scripts/pick-canary-python.py \
+            --manifest "$manifest" --os-version "$VERSION_ID" --arch "${RUNNER_ARCH,,}")"
+          echo "picked CPython $version for Ubuntu $VERSION_ID ${RUNNER_ARCH,,}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.16-dev"
-          allow-prereleases: true
+          python-version: ${{ steps.pick-python.outputs.version }}
       - name: Install a published wheel and smoke test it
         shell: bash
         run: |
@@ -32,8 +52,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.16-dev"
-          allow-prereleases: true
+          # Same Python version the release builds the abi3-py311 wheels with,
+          # so Python is not among the things that change between runs. Move it
+          # together with that abi3 floor.
+          python-version: "3.11"
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
       - name: Update locked dependencies and build a wheel
         shell: bash
@@ -50,7 +72,7 @@ jobs:
 
   ping-dead-mans-switch:
     name: ping dead-man's switch
-    needs: [published-wheel-on-prerelease-python, rebuild-with-updated-dependencies]
+    needs: [published-wheel-on-newest-python, rebuild-with-updated-dependencies]
     runs-on: ubuntu-latest
     permissions: {}
     steps:
