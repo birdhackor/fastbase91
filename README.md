@@ -1,10 +1,11 @@
+<!-- PyPI renders this file as the fastbase91 project description, where relative links break: keep every link absolute. -->
 # fastbase91
 
 [![crates.io](https://img.shields.io/crates/v/fastbase91-core.svg)](https://crates.io/crates/fastbase91-core)
 [![PyPI](https://img.shields.io/pypi/v/fastbase91.svg)](https://pypi.org/project/fastbase91/)
 [![Rust CI](https://github.com/birdhackor/fastbase91/actions/workflows/rust.yml/badge.svg)](https://github.com/birdhackor/fastbase91/actions/workflows/rust.yml)
 [![Python CI](https://github.com/birdhackor/fastbase91/actions/workflows/python.yml/badge.svg)](https://github.com/birdhackor/fastbase91/actions/workflows/python.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/birdhackor/fastbase91#license)
 
 A fast [basE91](https://base91.sourceforge.net/) binary-to-text codec: a
 `no_std`, `#![forbid(unsafe_code)]` Rust core (`fastbase91-core`) with a
@@ -76,9 +77,12 @@ The Rust core and the Python package are released on two independent version
 lines: `fastbase91-core` on [crates.io](https://crates.io/crates/fastbase91-core)
 via `fastbase91-core-vX.Y.Z` tags, and `fastbase91` wheels on
 [PyPI](https://pypi.org/project/fastbase91/) via `vX.Y.Z` tags. See
-[MAINTENANCE.md](MAINTENANCE.md) for the release runbook.
+[MAINTENANCE.md](https://github.com/birdhackor/fastbase91/blob/main/MAINTENANCE.md)
+for the release runbook.
 
 ## License
 
-Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at
-your option.
+Licensed under either of
+[MIT](https://github.com/birdhackor/fastbase91/blob/main/LICENSE-MIT) or
+[Apache-2.0](https://github.com/birdhackor/fastbase91/blob/main/LICENSE-APACHE)
+at your option.

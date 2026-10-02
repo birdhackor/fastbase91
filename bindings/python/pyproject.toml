@@ -4,18 +4,33 @@ build-backend = "maturin"
 
 [project]
 name = "fastbase91"
+description = "Fast basE91 binary-to-text codec for Python, backed by a safe Rust core"
+# PyPI renders the repository README; maturin copies it into the sdist.
+readme = "../../README.md"
 requires-python = ">=3.11"
 license = "MIT OR Apache-2.0"
 license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+authors = [{ name = "birdhackor" }]
+keywords = ["base91", "binary-to-text", "encoding", "decoding", "codec"]
 classifiers = [
     "Programming Language :: Rust",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
+
+[project.urls]
+Documentation = "https://birdhackor.github.io/fastbase91/"
+Repository = "https://github.com/birdhackor/fastbase91"
+Changelog = "https://birdhackor.github.io/fastbase91/en/changelog/"
+Issues = "https://github.com/birdhackor/fastbase91/issues"
 
 [tool.maturin]
 bindings = "pyo3"

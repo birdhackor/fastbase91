@@ -16,7 +16,7 @@ free-threaded 的 3.14t／3.15t）後交給 maturin 的 `-i`。**test** 依 `fre
 regular 層由 `actions/setup-python` 提供。新 stable-ABI wheel 可先做開發驗證，但只在
 對應 CPython 進入 RC、ABI 凍結後才納入正式發行 matrix。新增或移除
 Python／平台時，必須更新這份 matrix、確認實際安裝 smoke test，以及更新
-這份文件。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
+這份文件與 `bindings/python/pyproject.toml` 的 classifiers。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
 必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel，另須恰有一份 sdist，
 其中 compressed ABI tag（例如 maturin 產生的 `abi3.abi3t`）必須包含 matrix 宣告的 ABI，
 並拒絕缺項、多項、重複 id、重複 filename 與非預期的 `wheels-*` 目錄。
