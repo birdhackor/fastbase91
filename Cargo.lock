@@ -4,11 +4,11 @@ version = 3
 
 [[package]]
 name = "fastbase91-core"
-version = "0.1.2"
+version = "0.1.3"
 
 [[package]]
 name = "fastbase91-python"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "fastbase91-core",
  "pyo3",
