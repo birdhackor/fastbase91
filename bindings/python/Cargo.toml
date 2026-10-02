@@ -2,7 +2,9 @@
 name = "fastbase91-python"
 version = "0.1.2"
 edition = "2021"
-rust-version = "1.81"
+# The binding's MSRV follows PyO3's rust-version and is not a promise; only the
+# core's MSRV is promised to users.
+rust-version = "1.83"
 license = "MIT OR Apache-2.0"
 description = "PyO3 bindings for fastbase91"
 build = "build.rs"

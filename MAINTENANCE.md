@@ -32,7 +32,9 @@ PyO3：在 release note 宣告停產，移除該 matrix entry，並保留仍受�
 1. 從 Renovate 的 PR 開始，閱讀 PyO3 migration/free-threading 文件與
    maturin 相容性說明；pre-1.0 的 minor 升級也視同可能 breaking，絕不自動合併。
 2. 更新 `bindings/python/Cargo.toml` 的 PyO3 範圍並重建 `Cargo.lock`；檢查
-   `abi3-py311`、`abi3t-py315` 與 free-threaded feature 是否仍正確。
+   `abi3-py311`、`abi3t-py315` 與 free-threaded feature 是否仍正確。同檔的
+   `rust-version` 改成新 PyO3 宣告的 `rust-version`：binding 的 MSRV 跟 PyO3 走，
+   core 的 MSRV 不跟著動。
 3. 在 PR 和至少一次 release-candidate 上跑 `cargo test --all-features`、
    `pytest bindings/python/tests -q`，並跑 `.github/workflows/python.yml` 的完整
    三平台 wheel matrix（含 free-threaded 與安裝後測試）。
