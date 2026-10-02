@@ -1,4 +1,4 @@
-<!-- PyPI renders this file as the fastbase91 project description, where relative links break: keep every link absolute. -->
+<!-- This file is also the package page on PyPI (fastbase91) and crates.io (fastbase91-core). PyPI breaks relative links: keep every link absolute. -->
 # fastbase91
 
 [![crates.io](https://img.shields.io/crates/v/fastbase91-core.svg)](https://crates.io/crates/fastbase91-core)

@@ -4,7 +4,14 @@ version = "0.1.2"
 edition = "2021"
 rust-version = "1.81"
 license = "MIT OR Apache-2.0"
-description = "Safe no_std core for fastbase91"
+description = "Safe, no_std basE91 binary-to-text codec; the Rust core of fastbase91"
+repository = "https://github.com/birdhackor/fastbase91"
+homepage = "https://birdhackor.github.io/fastbase91/"
+documentation = "https://docs.rs/fastbase91-core"
+# crates.io renders the repository README; cargo copies it into the package.
+readme = "../../README.md"
+keywords = ["base91", "encoding", "binary-to-text", "codec", "no-std"]
+categories = ["encoding", "no-std", "no-std::no-alloc"]
 include = ["src/**", "benches/**", "LICENSE-MIT", "LICENSE-APACHE"]
 
 [features]

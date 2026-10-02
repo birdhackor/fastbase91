@@ -58,7 +58,7 @@ output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+
 
 1. 只提升 `crates/fastbase91-core/Cargo.toml` 的版本。若 binding 的 dependency lock
    需要更新，執行 `cargo update -p fastbase91-core` 並提交同步後的 `Cargo.lock`。
-2. 執行 `cargo package -p fastbase91-core --list`，確認只含預期原始碼、benchmark 與授權檔，
+2. 執行 `cargo package -p fastbase91-core --list`，確認只含預期原始碼、benchmark、README 與授權檔，
    再完成測試與 dry-run 審查。
 3. 在要發布的 commit 建立並推送 `fastbase91-core-vX.Y.Z`。workflow 以
    `cargo metadata` 確認 crate 版本等於 tag 版本，並以單次、fail-closed 的
