@@ -60,6 +60,30 @@
       "platformAutomerge": true
     },
     {
+      "description": "dtolnay/rust-toolchain refs (stable, 1.81.0) are branches, not tags. A version-like ref such as the MSRV pin 1.81.0 is otherwise looked up as a tag, the lookup fails, and its digest is never refreshed. github-digest also resolves branches, and exact versioning keeps each ref as written, so only the digest moves and the MSRV pin is never bumped.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "dtolnay/rust-toolchain"
+      ],
+      "overrideDatasource": "github-digest",
+      "versioning": "exact"
+    },
+    {
+      "description": "Leave canary.yml's Python to the maintainers: the rebuild canary runs on the Python that builds the abi3-py311 wheels, so Python is not one of the things that change between runs (MAINTENANCE.md, Weekly canary), and it moves by hand together with that abi3 floor.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchFileNames": [
+        ".github/workflows/canary.yml"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Keep Rust and Python dependency changes together for CI review",
       "matchManagers": [
         "cargo",
