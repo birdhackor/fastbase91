@@ -36,7 +36,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         if: matrix.python_provider == 'uv'
         with:
-          version: "0.12.22"
+          version: "0.12.23"
           enable-cache: false
       - id: uv_python
         name: Install the uv-managed build interpreter
@@ -184,7 +184,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         if: matrix.free_threaded
         with:
-          version: "0.12.22"
+          version: "0.12.23"
           enable-cache: false
       - id: uv_test_python
         name: Create an isolated uv-managed free-threaded test environment
