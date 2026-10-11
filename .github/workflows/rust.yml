@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           components: rustfmt, clippy
           targets: thumbv7em-none-eabihf
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@4a01ad9837b11c132e8b9e42af6e3c8480a22e9d # 1.81.0
+      - uses: dtolnay/rust-toolchain@963f53f7d8e716a461fe96531ad16f954eef888c # 1.81.0
       - run: cargo test -p fastbase91-core --no-default-features
       - run: cargo test -p fastbase91-core --no-default-features --features alloc
 
