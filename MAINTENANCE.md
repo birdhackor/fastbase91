@@ -4,28 +4,42 @@
 
 wheel matrix 的單一真值源是 `.github/wheel-matrix.json`；
 `.github/workflows/python.yml` 的 `build-wheels`、`test-wheels` 與 manifest
-完整性 gate 都讀取它。目前發行三層（皆三平台）：一般 CPython 用 `abi3-py311`，
+完整性 gate 都讀取它。目前發行三層：一般 CPython 用 `abi3-py311`，
 CPython 3.14t 用版本專屬 `cp314-cp314t`，CPython 3.15+ free-threaded 用
 `abi3t-py315`。`abi3t-py315` 已於 Python 3.15 進入 RC、ABI 凍結後恢復。
 
+三層都發的平台是 Linux glibc（`manylinux_2_28`）的 x86_64 與 aarch64、macOS arm64
+與 Windows x86_64。Linux musl（`musllinux_1_2`）的 x86_64 與 aarch64 只發
+`abi3-py311`：Docker 官方 python image 沒有 free-threaded 版本，musl 上的
+free-threaded 需求撐不起另外兩層的建置與測試。刻意不發 wheel、交給 sdist 從原始碼
+建置的平台有兩個：Intel macOS（Apple silicon 已普及，GitHub 最後一個 x86_64 macOS
+runner image 預計 2027 年秋季退役，加了不久就得停產）與 Windows ARM64（等有使用者
+需要再加）。
+
 build 與 test 的直譯器來源分開決定。**build** 只有兩種 provider
-（`wheel-matrix.json` 的 `python_provider`）：manylinux 各層在 maturin-action 容器內
-建置；所有 Windows 與 macOS 層一律由 uv 安裝對應直譯器（regular 的 3.11、
-free-threaded 的 3.14t／3.15t）後交給 maturin 的 `-i`。**test** 依 `free_threaded`
-決定，與 build provider 無關：free-threaded 層（含 3.15 RC）由 uv 建隔離環境，
-regular 層由 `actions/setup-python` 提供。新 stable-ABI wheel 可先做開發驗證，但只在
+（`wheel-matrix.json` 的 `python_provider`）：manylinux 與 musllinux 各層在
+maturin-action 容器內建置，aarch64 各層用原生的 `ubuntu-24.04-arm` runner。musllinux
+另以 `target` 指定 musl target（maturin-action 無法自行推得）；Rust 標準庫在 musl 上
+需要的 `libgcc_s` 由 maturin 複製進 wheel 的 `fastbase91.libs/`。所有 Windows 與
+macOS 層一律由 uv 安裝對應直譯器（regular 的 3.11、free-threaded 的 3.14t／3.15t）
+後交給 maturin 的 `-i`。**test** 與 build provider 無關：有 `test_container` 的層
+（musllinux）裝不進 glibc runner，改以 `docker run` 在該 image（官方
+`python:<版本>-alpine`）內安裝並跑同一套測試；其餘依 `free_threaded` 決定，
+free-threaded 層（含 3.15 RC）由 uv 建隔離環境，regular 層由 `actions/setup-python`
+提供。新 stable-ABI wheel 可先做開發驗證，但只在
 對應 CPython 進入 RC、ABI 凍結後才納入正式發行 matrix。新增或移除
 Python／平台時，必須更新這份 matrix、確認實際安裝 smoke test，以及更新
 這份文件與 `bindings/python/pyproject.toml` 的 classifiers。manifest gate 依 artifact 名 `wheels-<id>` 對應 matrix id；每個 id
-必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel，另須恰有一份 sdist，
+必須恰有一顆符合宣告 Python／ABI／平台 tag 的 wheel（每個 entry 的
+`platform_tag_regex` 只接受一種架構與 libc），另須恰有一份 sdist，
 其中 compressed ABI tag（例如 maturin 產生的 `abi3.abi3t`）必須包含 matrix 宣告的 ABI，
 並拒絕缺項、多項、重複 id、重複 filename 與非預期的 `wheels-*` 目錄。
 
 free-threaded 支援是跟著 PyO3 與 maturin 的可用支援窗走。當 PyO3 不再
 支援某個版本專屬 free-threaded ABI 時，不為保留單一 wheel 而凍結舊
 PyO3：在 release note 宣告停產，移除該 matrix entry，並保留仍受支援的
-`abi3t` 路徑。新的版本專屬 free-threaded wheel 則要先在三平台建置、安裝、
-確認 import 不重新啟用 GIL、並通過並行 round-trip gate，才納入 matrix。
+`abi3t` 路徑。新的版本專屬 free-threaded wheel 則要先在所有發 free-threaded 層的
+平台建置、安裝、確認 import 不重新啟用 GIL、並通過並行 round-trip gate，才納入 matrix。
 
 ## 升級 PyO3
 
@@ -37,7 +51,7 @@ PyO3：在 release note 宣告停產，移除該 matrix entry，並保留仍受�
    core 的 MSRV 不跟著動。
 3. 在 PR 和至少一次 release-candidate 上跑 `cargo test --all-features`、
    `pytest bindings/python/tests -q`，並跑 `.github/workflows/python.yml` 的完整
-   三平台 wheel matrix（含 free-threaded 與安裝後測試）。
+   wheel matrix（含 free-threaded、musllinux 與安裝後測試）。
 4. 若新的 CPython 尚未能由 PyO3/maturin 端到端建置，先停在相容的支援窗並
    記錄上游 issue；不要靠未驗證的 ABI tag 或釘死舊 PyO3 來假裝支援。
 
@@ -83,7 +97,7 @@ output 分流。ref 必須是 tag，且要精確符合 `^v[0-9]+\.[0-9]+\.[0-9]+
    `python-ci` 與 `rust-ci` 綠，再對同一 commit 打輕量 tag 並推送**；其中 `python-ci` 的
    wheel 建置以 `maturin build --locked` 進行，等於發布前的 lock 同步預檢（`rust-ci` 不帶
    `--locked`）。tag 一旦推出即綁定該內容，內容有誤只能跳下一個版號。
-3. Python 線呼叫 `python.yml` 的 `workflow_call`，建置 9 組 wheels 與 sdist、產生
+3. Python 線呼叫 `python.yml` 的 `workflow_call`，建置 14 組 wheels 與 sdist、產生
    manifest、做安裝與 sdist 重建測試，並組成 immutable `release-batch`。頂層 job
    再重驗 filename、SHA-256、source commit 與 Python tag 版本。
 4. 發布前的 core 先發守衛由 `crates/fastbase91-core/Cargo.toml` 讀取 core 版本 V，

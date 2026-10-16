@@ -57,6 +57,9 @@ jobs:
           maturin-version: v1.15.0
           rust-toolchain: stable
           manylinux: ${{ matrix.manylinux }}
+          # Empty builds for the runner's architecture. musllinux entries name
+          # their musl target, since maturin-action cannot infer it.
+          target: ${{ matrix.target }}
           args: >-
             --release --locked --compatibility pypi
             --manifest-path bindings/python/Cargo.toml --out dist
@@ -176,9 +179,10 @@ jobs:
       # Regular released interpreters come from setup-python; free-threaded
       # ones (including the 3.15 RC) are only reliably available via uv, so the
       # test interpreter is chosen by free_threaded, independent of how the
-      # wheel was built.
+      # wheel was built. Entries with a test_container (musllinux) cannot
+      # install on the glibc runner and are tested in that image instead.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        if: ${{ !matrix.free_threaded }}
+        if: ${{ !matrix.free_threaded && !matrix.test_container }}
         with:
           python-version: ${{ matrix.test_python_version }}
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
@@ -207,6 +211,7 @@ jobs:
           name: wheels-${{ matrix.id }}
           path: wheel
       - name: Install the built wheel and test dependencies
+        if: ${{ !matrix.test_container }}
         shell: bash
         env:
           TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
@@ -214,6 +219,7 @@ jobs:
           "$TEST_PYTHON" -m pip install --upgrade pip pytest
           "$TEST_PYTHON" -m pip install --force-reinstall wheel/*.whl
       - name: Import smoke test
+        if: ${{ !matrix.test_container }}
         shell: bash
         env:
           TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
@@ -251,10 +257,28 @@ jobs:
           print("free-threaded gate: GIL remains disabled and all payload bytes round-trip")
           PY
       - name: Run binding tests
+        if: ${{ !matrix.test_container }}
         shell: bash
         env:
           TEST_PYTHON: ${{ matrix.free_threaded && steps.uv_test_python.outputs.path || 'python' }}
         run: '"$TEST_PYTHON" -m pytest bindings/python/tests -q'
+      # The same install, smoke test and binding suite as the steps above, run
+      # in the test image. The workspace is mounted read-only, hence no pytest
+      # cache.
+      - name: Install and test the wheel in its test container
+        if: ${{ matrix.test_container }}
+        shell: bash
+        env:
+          TEST_CONTAINER: ${{ matrix.test_container }}
+          TEST_SCRIPT: |
+            python -m venv /tmp/venv
+            /tmp/venv/bin/python -m pip install --upgrade pip pytest
+            /tmp/venv/bin/python -m pip install --force-reinstall wheel/*.whl
+            /tmp/venv/bin/python -c "import fastbase91; assert fastbase91.encode(b'input') == b'xojg][A'; print('python import: ok')"
+            /tmp/venv/bin/python -m pytest bindings/python/tests -q -p no:cacheprovider
+        run: |
+          docker run --rm --volume "$GITHUB_WORKSPACE:/work:ro" --workdir /work \
+            "$TEST_CONTAINER" sh -euc "$TEST_SCRIPT"
 
   license-copies:
     runs-on: ubuntu-latest
