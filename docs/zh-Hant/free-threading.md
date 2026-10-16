@@ -22,7 +22,7 @@ Python binding 標記了 `#[pymodule(gil_used = false)]`——這是 Rust 原始
 
 ## 我們發行的 wheel
 
-除了常規的 abi3 wheel（涵蓋 CPython 3.11 以上），我們也為 Linux x86_64、macOS arm64（Apple silicon）與 Windows x86_64 發行給自由執行緒直譯器用的 wheel；完整平台表見[安裝與相容性](installation.md)：
+除了常規的 abi3 wheel（涵蓋 CPython 3.11 以上），我們也為 Linux x86_64 與 ARM64（glibc）、macOS arm64（Apple silicon）與 Windows x86_64 發行給自由執行緒直譯器用的 wheel；完整平台表見[安裝與相容性](installation.md)：
 
 | Wheel | 適用於 |
 | --- | --- |

@@ -22,7 +22,7 @@ A continuous-integration job proves this on every change: on a free-threaded int
 
 ## The wheels we publish
 
-Alongside the regular abi3 wheel (which covers CPython 3.11 and up), we ship wheels for free-threaded interpreters for Linux x86_64, macOS arm64 (Apple silicon), and Windows x86_64; see [Installation & compatibility](installation.md) for the full platform table:
+Alongside the regular abi3 wheel (which covers CPython 3.11 and up), we ship wheels for free-threaded interpreters for Linux x86_64 and ARM64 (glibc), macOS arm64 (Apple silicon), and Windows x86_64; see [Installation & compatibility](installation.md) for the full platform table:
 
 | Wheel | For |
 | --- | --- |

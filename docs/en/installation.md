@@ -15,6 +15,9 @@ The package requires CPython 3.11 or later and supports CPython only.
 | Platform and architecture | Regular CPython 3.11+ | Free-threaded CPython 3.14t | Free-threaded CPython 3.15t+ |
 | --- | ---: | ---: | ---: |
 | Linux x86_64 (glibc 2.28+) | ✓ | ✓ | ✓ |
+| Linux ARM64 (aarch64, glibc 2.28+) | ✓ | ✓ | ✓ |
+| Linux x86_64 (musl 1.2+, such as Alpine) | ✓ | — | — |
+| Linux ARM64 (aarch64, musl 1.2+, such as Alpine) | ✓ | — | — |
 | macOS arm64 (Apple silicon, macOS 11+) | ✓ | ✓ | ✓ |
 | Windows x86_64 | ✓ | ✓ | ✓ |
 
@@ -22,7 +25,7 @@ Regular CPython uses an abi3 wheel; one wheel covers every version from 3.11 onw
 
 ### Other platforms
 
-CPython on platforms such as Linux ARM64, Intel Mac, Windows ARM, Alpine/musl, and Linux with glibc older than 2.28 has no pre-built wheel. `pip` downloads the source distribution and tries to build it locally; this requires a current stable Rust toolchain (for example installed with rustup). CI validates source builds only on Linux x86_64.
+CPython on platforms such as Intel Mac, Windows ARM, and Linux with glibc older than 2.28 or musl older than 1.2 has no pre-built wheel, and neither does free-threaded CPython on musl-based Linux such as Alpine. `pip` downloads the source distribution and tries to build it locally; this requires a current stable Rust toolchain (for example installed with rustup). CI validates source builds only on Linux x86_64.
 
 ### Unsupported environments
 

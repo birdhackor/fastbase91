@@ -15,6 +15,9 @@ python -m pip install fastbase91
 | 平台與架構 | 一般 CPython 3.11 以上 | 自由執行緒 CPython 3.14t | 自由執行緒 CPython 3.15t 以上 |
 | --- | ---: | ---: | ---: |
 | Linux x86_64（glibc 2.28 以上） | ✓ | ✓ | ✓ |
+| Linux ARM64（aarch64，glibc 2.28 以上） | ✓ | ✓ | ✓ |
+| Linux x86_64（musl 1.2 以上，例如 Alpine） | ✓ | — | — |
+| Linux ARM64（aarch64，musl 1.2 以上，例如 Alpine） | ✓ | — | — |
 | macOS arm64（Apple silicon、macOS 11 以上） | ✓ | ✓ | ✓ |
 | Windows x86_64 | ✓ | ✓ | ✓ |
 
@@ -22,7 +25,7 @@ python -m pip install fastbase91
 
 ### 其他平台
 
-CPython 在 Linux ARM64、Intel Mac、Windows ARM、Alpine／musl，以及 glibc 早於 2.28 的 Linux 等平台沒有預先建好的 wheel。`pip` 會下載原始碼發行版並嘗試在本機編譯；需要目前的 stable 版 Rust 工具鏈（例如透過 rustup 安裝）。CI 只在 Linux x86_64 上驗證原始碼建置。
+CPython 在 Intel Mac、Windows ARM，以及 glibc 早於 2.28 或 musl 早於 1.2 的 Linux 等平台沒有預先建好的 wheel；Alpine 這類以 musl 為基礎的 Linux 上，自由執行緒 CPython 也沒有。`pip` 會下載原始碼發行版並嘗試在本機編譯；需要目前的 stable 版 Rust 工具鏈（例如透過 rustup 安裝）。CI 只在 Linux x86_64 上驗證原始碼建置。
 
 ### 不支援的環境
 
