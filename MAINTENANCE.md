@@ -20,7 +20,9 @@ build 與 test 的直譯器來源分開決定。**build** 只有兩種 provider
 （`wheel-matrix.json` 的 `python_provider`）：manylinux 與 musllinux 各層在
 maturin-action 容器內建置，aarch64 各層用原生的 `ubuntu-24.04-arm` runner。musllinux
 另以 `target` 指定 musl target（maturin-action 無法自行推得）；Rust 標準庫在 musl 上
-需要的 `libgcc_s` 由 maturin 複製進 wheel 的 `fastbase91.libs/`。所有 Windows 與
+需要的 `libgcc_s` 由 maturin 複製進 wheel 的 `fastbase91.libs/`，它的授權聲明寫在
+`bindings/python/THIRD-PARTY-LICENSES`（經 `license-files` 隨所有發行物附上）；wheel
+內含的第三方函式庫有增減時要同步更新這份檔案。所有 Windows 與
 macOS 層一律由 uv 安裝對應直譯器（regular 的 3.11、free-threaded 的 3.14t／3.15t）
 後交給 maturin 的 `-i`。**test** 與 build provider 無關：有 `test_container` 的層
 （musllinux）裝不進 glibc runner，改以 `docker run` 在該 image（官方

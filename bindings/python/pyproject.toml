@@ -9,7 +9,7 @@ description = "Fast basE91 binary-to-text codec for Python, backed by a safe Rus
 readme = "../../README.md"
 requires-python = ">=3.11"
 license = "MIT OR Apache-2.0"
-license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+license-files = ["LICENSE-MIT", "LICENSE-APACHE", "THIRD-PARTY-LICENSES"]
 authors = [{ name = "birdhackor" }]
 keywords = ["base91", "binary-to-text", "encoding", "decoding", "codec"]
 classifiers = [

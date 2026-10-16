@@ -1,0 +1,33 @@
+fastbase91 is licensed under MIT OR Apache-2.0 (see LICENSE-MIT and
+LICENSE-APACHE). This file lists the third-party code that its Python
+distributions carry. The source distribution contains only fastbase91's own
+source code.
+
+Rust crates (every wheel)
+-------------------------
+
+Every wheel contains one compiled extension module, built from fastbase91's
+own crates and their Rust dependencies. The CycloneDX SBOM in the wheel's
+.dist-info/sboms/ directory lists those dependencies and their licenses, all
+of them permissive.
+
+Bundled shared library (musllinux wheels only)
+----------------------------------------------
+
+The wheels for musl-based Linux (musllinux), such as Alpine, also carry a
+copy of the GCC runtime library, which the Rust standard library links on
+musl for stack unwinding. No other wheel contains it.
+
+  Name:       libgcc_s (GCC runtime library)
+  File:       fastbase91.libs/libgcc_s-*.so.1
+  Source:     https://gcc.gnu.org/
+  Copyright:  Free Software Foundation, Inc.
+  License:    GPL-3.0-or-later WITH GCC-exception-3.1
+
+The GCC Runtime Library Exception, version 3.1, permits distributing this
+library together with fastbase91's compiled extension. License texts:
+
+  GNU General Public License, version 3
+    https://www.gnu.org/licenses/gpl-3.0.txt
+  GCC Runtime Library Exception, version 3.1
+    https://www.gnu.org/licenses/gcc-exception-3.1.txt
