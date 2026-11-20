@@ -201,7 +201,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
         with:
           components: clippy
           targets: thumbv7em-none-eabihf
@@ -227,7 +227,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@3c45e25d888f9d61848f1523f538434082f18e6c # 1.81.0
+      - uses: dtolnay/rust-toolchain@f69dec2cad59505ec0b235016988f6a6710e7c26 # 1.81.0
       - name: Test the core crate on the minimum supported Rust version
         run: |
           set -euo pipefail
@@ -255,7 +255,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable
       - name: Require the core crate version to match the core release tag
         shell: bash
         run: |
